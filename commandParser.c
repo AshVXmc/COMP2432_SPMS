@@ -21,7 +21,7 @@ void parseCommand(char command[]) {
             add_parking();
         }
         else if (strcmp(token, "addReservation")) {
-
+            
         }
         else if (strcmp(token, "addEvent")) {
 
