@@ -1,0 +1,5 @@
+# ignore any executable builds
+*.exe
+
+# ignore vscode-generated folder
+.vscode/
