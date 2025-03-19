@@ -11,5 +11,8 @@ A Smart Parking Management System for PolyU using OS-Level process coordination.
 
 ### Windows
 1. Install the [GCC compiler](https://gcc.gnu.org/install/download.html)
-2. Run `gcc SPMS_G59.c` in the command line.
-3. Run the resulting executable file
+2. Run `gcc SPMS_G59.c -o SPMS` in the command line.
+3. Run `./SPMS` in the command line to execute the program.
+
+## Linux/Unix
+TODO

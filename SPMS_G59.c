@@ -30,14 +30,15 @@ int totalBookings = 0;
 int parkingAvailability[TIME_SLOTS][PARKING_SLOTS] = {0}; // 0 means available
 int resourceAvailability[TIME_SLOTS][MAX_RESOURCES] = {0}; 
 
+
+pthread_mutex_t lock;
+
 enum PRIORITIES {
     PRIORITY_PARKING = 3,
     PRIORITY_EVENT = 1,
     PRIORITY_RESERVATION = 2
-}
+};
 
-// Mutex variables
-pthread_mutex_t lock;
 
 // Prototypes
 void addBooking(char *memberName, char *date, char *time, float duration, char essentials[MAX_RESOURCES][20], int priority);
