@@ -5,7 +5,7 @@
 #include <pthread.h>
 
 #define MAX_BOOKINGS 100
-#define MAX_RESOURCES 6
+#define MAX_RESOURCES 6 + 1
 #define PARKING_SLOTS 10
 #define TIME_SLOTS 24
 
@@ -42,9 +42,9 @@ enum PRIORITIES {
 
 // Prototypes
 void addBooking(char *memberName, char *date, char *time, float duration, char essentials[MAX_RESOURCES][20], int priority);
-void processBookingsFCFS();
-void processBookingsPriority();
-void processBookingsOptimized();
+void processBookings_FCFS();
+void processBookings_Priority();
+void processBookings_Optimized();
 void printBookings(const char *algorithm);
 int allocateResources(int startSlot, int durationSlots, char essentials[MAX_RESOURCES][20]);
 void releaseResources(int startSlot, int durationSlots, char essentials[MAX_RESOURCES][20]);
@@ -65,7 +65,7 @@ int main() {
     memset(parkingAvailability, 1, sizeof(parkingAvailability)); // 1 means available
     for (int i = 0; i < TIME_SLOTS; i++) {
         for (int j = 0; j < MAX_RESOURCES; j++) {
-            resourceAvailability[i][j] = MAX_RESOURCES;
+            resourceAvailability[i][j] = 3; // assume 3 lockers, umbrellas, batteries, cables, valet parking, and cable services
         }
     }
     // Initialize Mutex
@@ -83,13 +83,14 @@ int main() {
         if (strncmp(command, "addParking", 10) == 0) {
             // Priority for parking is 3
             // Sample command: addParking -Castorice 2025-05-10 09:00 2.0 8 locker umbrella 
-            sscanf(command, "addParking -%s %s %s %f %s %s", memberName, date, time, &duration, essentials[0], essentials[1]);
+            sscanf(command, "addParking -%s %s %s %f %s %s %s %s %s %s %s", memberName, date, time, &duration, essentials[0], essentials[1], essentials[2], essentials[3], essentials[4], essentials[5], essentials[6]);
             addBooking(memberName, date, time, duration, essentials, PRIORITY_PARKING);
         }
         else if (strncmp(command, "addReservation", 14) == 0) {
             // Priority for reservation is 2
             // Sample command: addReservation -Mydei 2025-05-14 08:00 3.0 battery cable
-            sscanf(command, "addReservation -%s %s %s %f %s %s", memberName, date, time, &duration, essentials[0], essentials[1]);
+            sscanf(command, "addReservation -%s %s %s %f %s %s %s %s %s %s %s", memberName, date, time, &duration, essentials[0], essentials[1], essentials[2], essentials[3], essentials[4], essentials[5], essentials[6]);
+
             addBooking(memberName, date, time, duration, essentials, PRIORITY_RESERVATION); 
         } 
         else if (strncmp(command, "addEvent", 8) == 0) {
@@ -99,16 +100,45 @@ int main() {
             addBooking(memberName, date, time, duration, essentials, PRIORITY_EVENT); 
         }
         else if (strncmp(command, "processBookings -fcfs", 21) == 0) {
-            // processBookings_FCFS();
+            if (totalBookings > 0) processBookings_FCFS();
+            else printf("No booking(s) have been made.\n");
         } 
         else if (strncmp(command, "processBookings -prio", 21) == 0) {
-            // processBookings_Priority();
+            if (totalBookings > 0) processBookings_Priority();
+            else printf("No booking(s) have been made.\n");
         } 
         else if (strncmp(command, "processBookings -opti", 21) == 0) {
-            // processBookings_Optimized();
+            if (totalBookings > 0) processBookings_Optimized();
+            else printf("No booking(s) have been made.\n");
         } 
+        else if (strncmp(command, "printBookings -fcfs", 21) == 0) {
+            if (totalBookings > 0) {
+                processBookings_FCFS();
+                printBookings("FCFS");
+            }
+            else printf("No booking(s) have been made.\n");
+        }
+        else if (strncmp(command, "printBookings -prio", 21) == 0) {
+            if (totalBookings > 0) {
+                processBookings_Priority();
+                printBookings("PRIORITY");
+            }
+            else printf("No booking(s) have been made.\n");
+        }
+        else if (strncmp(command, "printBookings -opti", 21) == 0) {
+            if (totalBookings > 0) {
+                processBookings_Optimized();
+                printBookings("OPTIMIZED");
+            }
+            else printf("No booking(s) have been made.\n"); 
+        }  
         else if (strncmp(command, "printBookings", 13) == 0) {
-            // printBookings("ALL");
+            processBookings_FCFS();
+            printBookings("FCFS");
+            processBookings_Priority();
+            printBookings("PRIORITY");
+            processBookings_Optimized();
+            printBookings("OPTIMIZED");
         } 
         else if (strncmp(command, "endProgram", 10) == 0) {
             printf("Bye!\n");
@@ -144,14 +174,23 @@ void addBooking(char *memberName, char *date, char *time, float duration, char e
         b->duration = duration;
         b->priority = priority;
         b->parkingSlot = -1; // Has not been assigned yet
-        b->accepted = 0;    // Default to rejected status
-
-        for (int i = 0; i < MAX_RESOURCES; i++) {
+        b->accepted = 0;    // Default to 'rejected' status.
+        int i;
+        for (i = 0; i < MAX_RESOURCES; i++) {
             strcpy(b->essentials[i], essentials[i]);
         }
 
         totalBookings++;
         printf("Booking added: %s on %s at %s for %.2f hours.\n", memberName, date, time, duration);
+        printf("Essentials booked: ");
+        for (i = 1; i < MAX_RESOURCES; i++) {
+            if (essentials[i] != "locker" && essentials[i] == "battery" && essentials[i] == "umbrella"
+                && essentials[i] == "cable" && essentials[i] == "valet_service" && essentials[i] == "inflation_service"
+            ) break;
+            printf("%s", essentials[i]);
+        }
+
+        // printf("\n");
     }
 
     pthread_mutex_unlock(&lock);
@@ -160,17 +199,18 @@ void addBooking(char *memberName, char *date, char *time, float duration, char e
 // First Come First Serve scheduling.
 void processBookings_FCFS() {
     pthread_mutex_lock(&lock);
-
-    for (int i = 0; i < totalBookings; i++) {
+    int i, j, k;
+    
+    for (i = 0; i < totalBookings; i++) {
         Booking *b = &bookings[i];
         int startSlot = timeToSlot(b->time);
         int durationSlots = (int)b->duration;
 
         // Check parking slot availability
         int slotFound = -1;
-        for (int j = 0; j < PARKING_SLOTS; j++) {
+        for (j = 0; j < PARKING_SLOTS; j++) {
             int available = 1;
-            for (int k = startSlot; k < startSlot + durationSlots; k++) {
+            for (k = startSlot; k < startSlot + durationSlots; k++) {
                 if (parkingAvailability[k][j] == 0) {
                     available = 0;
                     break;
@@ -186,7 +226,7 @@ void processBookings_FCFS() {
         int resourcesAllocated = allocateResources(startSlot, durationSlots, b->essentials);
 
         if (slotFound != -1 && resourcesAllocated) {
-            for (int k = startSlot; k < startSlot + durationSlots; k++) {
+            for (k = startSlot; k < startSlot + durationSlots; k++) {
                 parkingAvailability[k][slotFound] = 0; // Mark parking slot as occupied
             }
             b->parkingSlot = slotFound; 
@@ -206,8 +246,22 @@ void processBookings_Priority() {
     pthread_mutex_lock(&lock);
 
     // Sort bookings based on priority
-    // quicksort average time complexity is O(n log n)
+    // Currently has a time complexity of O(n^2)
+    // for (int i = 0; i < totalBookings - 1; i++) {
+    //     for (int j = i + 1; j < totalBookings; j++) {
+    //         if (bookings[i].priority > bookings[j].priority) {
+    //             // swap
+    //             Booking temp = bookings[i];
+    //             bookings[i] = bookings[j];
+    //             bookings[j] = temp;
+    //         }
+    //     }
+    // }
+
+    // use quick sort (?)
     qsort(bookings, totalBookings, sizeof(Booking), compareBookings);
+
+    printf("PROCESSING W PRIORITY");
 
     processBookings_FCFS(); // Use FCFS processing after sorting by priority
 
@@ -215,7 +269,7 @@ void processBookings_Priority() {
 }
 
 
-// Optimized (allegedly)
+// Optimized 
 void processBookings_Optimized() {
     pthread_mutex_lock(&lock);
 
@@ -223,21 +277,22 @@ void processBookings_Optimized() {
     // First step: Process all bookings using FCFS
     processBookings_FCFS();
 
+    int i, j, k, newStartSlot;
     // Second step: Attempt to reschedule rejected bookings
-    for (int i = 0; i < totalBookings; i++) {
+    for (i = 0; i < totalBookings; i++) {
         Booking *b = &bookings[i];
         if (b->accepted == 0) { // If rejected
             int startSlot = timeToSlot(b->time);
             int durationSlots = (int)b->duration;
 
             // Try to find a new time slot and resources
-            for (int newStartSlot = 0; newStartSlot < TIME_SLOTS - durationSlots; newStartSlot++) {
+            for (newStartSlot = 0; newStartSlot < TIME_SLOTS - durationSlots; newStartSlot++) {
                 int slotFound = -1;
 
                 // Check parking slot availability
-                for (int j = 0; j < PARKING_SLOTS; j++) {
+                for (j = 0; j < PARKING_SLOTS; j++) {
                     int available = 1;
-                    for (int k = newStartSlot; k < newStartSlot + durationSlots; k++) {
+                    for (k = newStartSlot; k < newStartSlot + durationSlots; k++) {
                         if (parkingAvailability[k][j] == 0) {
                             available = 0;
                             break;
@@ -253,7 +308,7 @@ void processBookings_Optimized() {
                 int resourcesAllocated = allocateResources(newStartSlot, durationSlots, b->essentials);
 
                 if (slotFound != -1 && resourcesAllocated) {
-                    for (int k = newStartSlot; k < newStartSlot + durationSlots; k++) {
+                    for (k = newStartSlot; k < newStartSlot + durationSlots; k++) {
                         parkingAvailability[k][slotFound] = 0; // Mark parking slot as occupied
                     }
                     b->parkingSlot = slotFound;
@@ -281,8 +336,8 @@ int compareBookings(const void *a, const void *b) {
 // Function to allocate resources for a booking
 int allocateResources(int startSlot, int durationSlots, char essentials[MAX_RESOURCES][20]) {
     int resourceCount[MAX_RESOURCES] = {0};
-
-    for (int i = 0; i < MAX_RESOURCES; i++) {
+    int i, j;
+    for (i = 0; i < MAX_RESOURCES; i++) {
         if (strcmp(essentials[i], "battery") == 0) resourceCount[0]++;
         else if (strcmp(essentials[i], "cable") == 0) resourceCount[1]++;
         else if (strcmp(essentials[i], "locker") == 0) resourceCount[2]++;
@@ -292,8 +347,8 @@ int allocateResources(int startSlot, int durationSlots, char essentials[MAX_RESO
     }
 
     // Check if resources are available
-    for (int i = 0; i < MAX_RESOURCES; i++) {
-        for (int j = startSlot; j < startSlot + durationSlots; j++) {
+    for (i = 0; i < MAX_RESOURCES; i++) {
+        for (j = startSlot; j < startSlot + durationSlots; j++) {
             if (resourceCount[i] > resourceAvailability[j][i]) {
                 return 0; // Resources not available
             }
@@ -301,8 +356,8 @@ int allocateResources(int startSlot, int durationSlots, char essentials[MAX_RESO
     }
 
     // Deduct resources
-    for (int i = 0; i < MAX_RESOURCES; i++) {
-        for (int j = startSlot; j < startSlot + durationSlots; j++) {
+    for (i = 0; i < MAX_RESOURCES; i++) {
+        for (j = startSlot; j < startSlot + durationSlots; j++) {
             resourceAvailability[j][i] -= resourceCount[i];
         }
     }
@@ -312,7 +367,8 @@ int allocateResources(int startSlot, int durationSlots, char essentials[MAX_RESO
 
 // Function to release resources after a booking
 void releaseResources(int startSlot, int durationSlots, char essentials[MAX_RESOURCES][20]) {
-    for (int i = 0; i < 3; i++) {
+    int i, j;
+    for (i = 0; i < 3; i++) {
         int resourceType = -1;
         if (strcmp(essentials[i], "battery") == 0) resourceType = 0;
         else if (strcmp(essentials[i], "cable") == 0) resourceType = 1;
@@ -323,7 +379,7 @@ void releaseResources(int startSlot, int durationSlots, char essentials[MAX_RESO
     
 
         if (resourceType != -1) {
-            for (int j = startSlot; j < startSlot + durationSlots; j++) {
+            for (j = startSlot; j < startSlot + durationSlots; j++) {
                 resourceAvailability[j][resourceType]++;
             }
         }
@@ -333,13 +389,14 @@ void releaseResources(int startSlot, int durationSlots, char essentials[MAX_RESO
 // Function to print bookings
 void printBookings(const char *algorithm) {
     pthread_mutex_lock(&lock);
-
+    int i;
     printf("\n*** Booking Schedule (%s) ***\n", algorithm);
-    for (int i = 0; i < totalBookings; i++) {
+    for (i = 0; i < totalBookings; i++) {
         Booking *b = &bookings[i];
         if (b->accepted) {
             printf("ACCEPTED: %s on %s at %s for %.1f hours. Slot: %d\n", b->memberName, b->date, b->time, b->duration, b->parkingSlot);
-        } else {
+        } 
+        else {
             printf("REJECTED: %s on %s at %s for %.1f hours.\n", b->memberName, b->date, b->time, b->duration);
         }
     }
