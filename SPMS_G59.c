@@ -112,13 +112,13 @@ int main() {
             addBooking(memberName, date, time, duration, essentials, PRIORITY_EVENT); 
         }
         else if (strncmp(command, "bookEssentials", 14) == 0) {
-            // 初始化 essentials 陣列
+            // Initialize the focus
             for (int i = 0; i < MAX_RESOURCES; i++) {
                 strcpy(essentials[i], "");
             }
-            // 解析命令
+            // Parse command
             sscanf(command, "bookEssentials -%s %s %s %f %s", memberName, date, time, &duration, essentials[0]);
-            // 設置優先級為 4（Essentials 最低）
+            // Set the priority to 4 (Essentials is the lowest)
             addBooking(memberName, date, time, duration, essentials, 4);
             printf("-> [Pending]\n");
         }
@@ -173,12 +173,12 @@ int main() {
             }
             char line[128];
             while (fgets(line, sizeof(line), file)) {
-                line[strcspn(line, "\n")] = 0; // 移除換行符
-                // 初始化 essentials
+                line[strcspn(line, "\n")] = 0; // Remove newline characters
+                // Initialize essentials
                 for (int i = 0; i < MAX_RESOURCES; i++) {
                     strcpy(essentials[i], "");
                 }
-                // 解析並執行每行命令
+                // Parse and execute each line of command
                 if (strncmp(line, "addParking", 10) == 0) {
                     sscanf(line, "addParking -%s %s %s %f %s %s %s %s %s %s %s", 
                            memberName, date, time, &duration, essentials[0], essentials[1], essentials[2], essentials[3], essentials[4], essentials[5], essentials[6]);
