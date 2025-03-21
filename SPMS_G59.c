@@ -77,7 +77,7 @@ int main() {
     memset(parkingAvailability, 1, sizeof(parkingAvailability)); // 1 means available
     for (int i = 0; i < TIME_SLOTS; i++) {
         for (int j = 0; j < MAX_RESOURCES; j++) {
-            resourceAvailability[i][j] = 3; // assume 3 lockers, umbrellas, batteries, cables, valet parking, and cable services
+            resourceAvailability[i][j] = 3;
         }
     }
     // Initialize Mutex
@@ -110,6 +110,17 @@ int main() {
             // Sample command: addEvent –Tribbie 2025-05-16 14:00 2.0 locker umbrella valetpark
             sscanf(command, "addEvent -%s %s %s %f %s %s %s %s %s %s %s", memberName, date, time, &duration, essentials[0], essentials[1], essentials[2], essentials[3], essentials[4], essentials[5], essentials[6]);
             addBooking(memberName, date, time, duration, essentials, PRIORITY_EVENT); 
+        }
+        else if (strncmp(command, "bookEssentials", 14) == 0) {
+            // 初始化 essentials 陣列
+            for (int i = 0; i < MAX_RESOURCES; i++) {
+                strcpy(essentials[i], "");
+            }
+            // 解析命令
+            sscanf(command, "bookEssentials -%s %s %s %f %s", memberName, date, time, &duration, essentials[0]);
+            // 設置優先級為 4（Essentials 最低）
+            addBooking(memberName, date, time, duration, essentials, 4);
+            printf("-> [Pending]\n");
         }
         else if (strncmp(command, "processBookings -fcfs", 21) == 0) {
             if (totalBookings > 0) processBookings_FCFS();
@@ -151,7 +162,46 @@ int main() {
             printBookings("PRIORITY");
             // processBookings_Optimized();
             // printBookings("OPTIMIZED");
-        } 
+        } else if (strncmp(command, "addBatch", 8) == 0) {
+            char batchFile[20];
+            sscanf(command, "addBatch -%s", batchFile);
+            FILE *file = fopen(batchFile, "r");
+            if (file == NULL) {
+                printf("Cannot open batch file: %s\n", batchFile);
+                printf("-> [Pending]\n");
+                continue;
+            }
+            char line[128];
+            while (fgets(line, sizeof(line), file)) {
+                line[strcspn(line, "\n")] = 0; // 移除換行符
+                // 初始化 essentials
+                for (int i = 0; i < MAX_RESOURCES; i++) {
+                    strcpy(essentials[i], "");
+                }
+                // 解析並執行每行命令
+                if (strncmp(line, "addParking", 10) == 0) {
+                    sscanf(line, "addParking -%s %s %s %f %s %s %s %s %s %s %s", 
+                           memberName, date, time, &duration, essentials[0], essentials[1], essentials[2], essentials[3], essentials[4], essentials[5], essentials[6]);
+                    addBooking(memberName, date, time, duration, essentials, PRIORITY_PARKING);
+                } 
+                else if (strncmp(line, "addReservation", 14) == 0) {
+                    sscanf(line, "addReservation -%s %s %s %f %s %s %s %s %s %s %s", 
+                           memberName, date, time, &duration, essentials[0], essentials[1], essentials[2], essentials[3], essentials[4], essentials[5], essentials[6]);
+                    addBooking(memberName, date, time, duration, essentials, PRIORITY_RESERVATION);
+                } 
+                else if (strncmp(line, "addEvent", 8) == 0) {
+                    sscanf(line, "addEvent -%s %s %s %f %s %s %s %s %s %s %s", 
+                           memberName, date, time, &duration, essentials[0], essentials[1], essentials[2], essentials[3], essentials[4], essentials[5], essentials[6]);
+                    addBooking(memberName, date, time, duration, essentials, PRIORITY_EVENT);
+                } 
+                else if (strncmp(line, "bookEssentials", 14) == 0) {
+                    sscanf(line, "bookEssentials -%s %s %s %f %s", 
+                           memberName, date, time, &duration, essentials[0]);
+                    addBooking(memberName, date, time, duration, essentials, 4);
+                }
+            }
+            fclose(file);
+        }
         else if (strncmp(command, "endProgram", 10) == 0) {
             printf("Bye!\n");
             break;
