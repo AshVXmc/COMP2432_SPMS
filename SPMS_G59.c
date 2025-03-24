@@ -9,6 +9,7 @@
 #define MAX_RESOURCES 6
 #define PARKING_SLOTS 10
 #define TIME_SLOTS 24
+#define RESOURCE_STOCK 3 // 3 of each resource/essential category is available.
 
 typedef struct {
     char memberName[20];
@@ -19,6 +20,7 @@ typedef struct {
     int priority;           
     int parkingSlot;        
     int accepted;           // 1 = accepted, 0 = rejected
+    char reasonForRejection[256]; // why the booking is rejected (if applicable)
 } Booking;
 
 typedef struct {
@@ -34,11 +36,14 @@ int resourceAvailability[TIME_SLOTS][MAX_RESOURCES] = {0};
 
 pthread_mutex_t lock;
 
+// the lower the priority value, the higher the priority.
 enum PRIORITIES {
     PRIORITY_EVENT = 1,
     PRIORITY_RESERVATION = 2,
-    PRIORITY_PARKING = 3
+    PRIORITY_PARKING = 3,
+    PRIORITY_ESSENTIAL = 4
 };
+
 
 const char *resourceNames[MAX_RESOURCES] = {
     "battery",
@@ -64,6 +69,10 @@ int compareBookings(const void *a, const void *b);
 int getResourceIndex(const char *resourceName);
 int contains(char essentials[MAX_RESOURCES][20], const char *item);
 
+// TODO
+void suggestAlternativeSlots(int durationSlots, char *memberName, char *date, char *time);
+
+
 int main() {
     char command[128];
     char memberName[20];
@@ -77,7 +86,7 @@ int main() {
     memset(parkingAvailability, 1, sizeof(parkingAvailability)); // 1 means available
     for (int i = 0; i < TIME_SLOTS; i++) {
         for (int j = 0; j < MAX_RESOURCES; j++) {
-            resourceAvailability[i][j] = 3;
+            resourceAvailability[i][j] = RESOURCE_STOCK;
         }
     }
     // Initialize Mutex
@@ -119,7 +128,7 @@ int main() {
             // Parse command
             sscanf(command, "bookEssentials -%s %s %s %f %s", memberName, date, time, &duration, essentials[0]);
             // Set the priority to 4 (Essentials is the lowest)
-            addBooking(memberName, date, time, duration, essentials, 4);
+            addBooking(memberName, date, time, duration, essentials, PRIORITY_ESSENTIAL);
             printf("-> [Pending]\n");
         }
         else if (strncmp(command, "processBookings -fcfs", 21) == 0) {
@@ -197,7 +206,7 @@ int main() {
                 else if (strncmp(line, "bookEssentials", 14) == 0) {
                     sscanf(line, "bookEssentials -%s %s %s %f %s", 
                            memberName, date, time, &duration, essentials[0]);
-                    addBooking(memberName, date, time, duration, essentials, 4);
+                    addBooking(memberName, date, time, duration, essentials, PRIORITY_ESSENTIAL);
                 }
             }
             fclose(file);
@@ -238,96 +247,79 @@ void addBooking(char *memberName, char *date, char *time, float duration, char e
         b->parkingSlot = -1; // Has not been assigned yet
         b->accepted = 0;    // Default to 'rejected' status.
         
-        // battery + cable, locker + umbrella, inflation + valetpark 
-        // TODO: Make sure that these resources come in pairs
-        
-        
+       
         int i;
         for (i = 0; i < MAX_RESOURCES; i++) {
             strcpy(b->essentials[i], essentials[i]);
         }
 
         if (contains(b->essentials, "battery") >= 0 && contains(b->essentials, "cable") == -1) {
-           // Add cable if battery is present
+           // Add cable if battery is present, if cable doesn't exist already.
            for (i = 0; i < MAX_RESOURCES; i++) {
                 if (strcmp(essentials[i], "locker") == 0 || strcmp(essentials[i], "battery") == 0 || strcmp(essentials[i], "cable") == 0 || strcmp(essentials[i], "umbrella") == 0 || strcmp(essentials[i], "inflation") == 0 || strcmp(essentials[i], "valetpark") == 0){
                     continue;
-                }
-                else {
+                } else {
                     strcpy(essentials[i], "cable");
                     break;
                 }
             }
-            
         }
         if (contains(b->essentials, "cable") >= 0 && contains(b->essentials, "battery") == -1) {
-            // Add cable if battery is present
+            //  Add battery if cable is present, if battery doesn't exist already.
             for (i = 0; i < MAX_RESOURCES; i++) {
                  if (strcmp(essentials[i], "locker") == 0 || strcmp(essentials[i], "battery") == 0 || strcmp(essentials[i], "cable") == 0 || strcmp(essentials[i], "umbrella") == 0 || strcmp(essentials[i], "inflation") == 0 || strcmp(essentials[i], "valetpark") == 0){
-                     continue;
+                    continue;
+                 } else {
+                    strcpy(essentials[i], "battery");
+                    break;
                  }
-                 else {
-                     strcpy(essentials[i], "battery");
-                     break;
+             }  
+         }
+        if (contains(b->essentials, "locker") >= 0 && contains(b->essentials, "umbrella") == -1) {
+            // Add umbrella if locker is present, if umbrella doesn't exist already.
+            for (i = 0; i < MAX_RESOURCES; i++) {
+                 if (strcmp(essentials[i], "locker") == 0 || strcmp(essentials[i], "battery") == 0 || strcmp(essentials[i], "cable") == 0 || strcmp(essentials[i], "umbrella") == 0 || strcmp(essentials[i], "inflation") == 0 || strcmp(essentials[i], "valetpark") == 0){
+                    continue;
+                 } else {
+                    strcpy(essentials[i], "umbrella");
+                    break;
                  }
              }
-             
          }
-
-         if (contains(b->essentials, "locker") >= 0 && contains(b->essentials, "umbrella") == -1) {
-            // Add cable if battery is present
+        if (contains(b->essentials, "umbrella") >= 0 && contains(b->essentials, "locker") == -1) {
+            // Add locker if umbrella is present, if locker doesn't exist already.
             for (i = 0; i < MAX_RESOURCES; i++) {
                  if (strcmp(essentials[i], "locker") == 0 || strcmp(essentials[i], "battery") == 0 || strcmp(essentials[i], "cable") == 0 || strcmp(essentials[i], "umbrella") == 0 || strcmp(essentials[i], "inflation") == 0 || strcmp(essentials[i], "valetpark") == 0){
                      continue;
-                 }
-                 else {
-                     strcpy(essentials[i], "umbrella");
-                     break;
-                 }
-             }
-
-         }
-         if (contains(b->essentials, "umbrella") >= 0 && contains(b->essentials, "locker") == -1) {
-            // Add cable if battery is present
-            for (i = 0; i < MAX_RESOURCES; i++) {
-                 if (strcmp(essentials[i], "locker") == 0 || strcmp(essentials[i], "battery") == 0 || strcmp(essentials[i], "cable") == 0 || strcmp(essentials[i], "umbrella") == 0 || strcmp(essentials[i], "inflation") == 0 || strcmp(essentials[i], "valetpark") == 0){
-                     continue;
-                 }
-                 else {
+                 } else {
                      strcpy(essentials[i], "locker");
                      break;
                  }
              }
-
-         }
-
-         if (contains(b->essentials, "inflation") >= 0 && contains(b->essentials, "valetpark") == -1) {
-            // Add cable if battery is present
+         } 
+        if (contains(b->essentials, "inflation") >= 0 && contains(b->essentials, "valetpark") == -1) {
+            // Add valetpark if inflation is present, if valetpark doesn't exist already.
             for (i = 0; i < MAX_RESOURCES; i++) {
                  if (strcmp(essentials[i], "locker") == 0 || strcmp(essentials[i], "battery") == 0 || strcmp(essentials[i], "cable") == 0 || strcmp(essentials[i], "umbrella") == 0 || strcmp(essentials[i], "inflation") == 0 || strcmp(essentials[i], "valetpark") == 0){
-                     continue;
-                 }
-                 else {
-                     strcpy(essentials[i], "valetpark");
-                     break;
+                    continue;
+                 } else {
+                    strcpy(essentials[i], "valetpark");
+                    break;
                  }
              }
 
          }
-         if (contains(b->essentials, "valetpark") >= 0 && contains(b->essentials, "inflation") == -1) {
-            // Add cable if battery is present
+        if (contains(b->essentials, "valetpark") >= 0 && contains(b->essentials, "inflation") == -1) {
+            // Add inflation if valetpark is present, if inflation doesn't exist already. 
             for (i = 0; i < MAX_RESOURCES; i++) {
                  if (strcmp(essentials[i], "locker") == 0 || strcmp(essentials[i], "battery") == 0 || strcmp(essentials[i], "cable") == 0 || strcmp(essentials[i], "umbrella") == 0 || strcmp(essentials[i], "inflation") == 0 || strcmp(essentials[i], "valetpark") == 0){
-                     continue;
-                 }
-                 else {
-                     strcpy(essentials[i], "inflation");
-                     break;
+                    continue;
+                 } else {
+                    strcpy(essentials[i], "inflation");
+                    break;
                  }
              }
-
          }
-
 
         totalBookings++;
         printf("Booking added: %s on %s at %s for %.2f hours. ", memberName, date, time, duration);
@@ -383,10 +375,18 @@ void processBookings_FCFS() {
             }
             b->parkingSlot = slotFound; 
             b->accepted = 1; // Booking accepted
+            
         } 
         else {
             releaseResources(startSlot, durationSlots, b->essentials); // Release resources if not allocated
             b->accepted = 0; // Booking rejected
+            if (slotFound == -1) {
+                snprintf(b->reasonForRejection, sizeof(b->reasonForRejection), "No available parking slots.");
+            } 
+            if (!resourcesAllocated) {
+                snprintf(b->reasonForRejection, sizeof(b->reasonForRejection), "One or more booked essentials are unavailable.");
+            }
+            suggestAlternativeSlots(durationSlots, b->memberName, b->date, b->time);
         }
     }
 
@@ -534,7 +534,8 @@ void printBookings(const char *algorithm) {
             printf("ACCEPTED: %s on %s at %s for %.1f hours. Parking Slot: %d\n", b->memberName, b->date, b->time, b->duration, b->parkingSlot);
         } 
         else {
-            printf("REJECTED: %s on %s at %s for %.1f hours.\n", b->memberName, b->date, b->time, b->duration);
+            printf("REJECTED: %s on %s at %s for %.1f hours. Reason: %s\n", b->memberName, b->date, b->time, b->duration, b->reasonForRejection);
+           
         }
     }
 
@@ -555,7 +556,7 @@ int getResourceIndex(const char *resourceName) {
             return i;
         }
     }
-    return -1; // Not found
+    return -1; // Item not found
 }
 
 // Function to check if an essential is present
@@ -566,4 +567,20 @@ int contains(char essentials[MAX_RESOURCES][20], const char *item) {
         }
     }
     return -1; // Item not found
+}
+
+void suggestAlternativeSlots(int durationSlots, char *memberName, char *date, char *time) {
+    printf("Suggested alternative booking slots for %s on %s at %s:\n", memberName, date, time);
+    for (int newStartSlot = 0; newStartSlot <= TIME_SLOTS - durationSlots; newStartSlot++) {
+        int available = 1;
+        for (int j = newStartSlot; j < newStartSlot + durationSlots; j++) {
+            if (parkingAvailability[j][0] == 0) { // Check parking availability
+                available = 0;
+                break;
+            }
+        }
+        if (available) {
+            printf(" -> Time slot: %02d:00\n", newStartSlot);
+        }
+    }
 }
