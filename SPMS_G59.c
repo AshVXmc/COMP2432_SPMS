@@ -69,7 +69,6 @@ int isValidTime(char *time);
 int isValidMember(char *memberName);
 int isValidResource(char *resource);
 
-// 驗證日期格式
 int isValidDate(char *date) {
     int year, month, day;
     if (sscanf(date, "%4d-%2d-%2d", &year, &month, &day) != 3) {
@@ -81,13 +80,12 @@ int isValidDate(char *date) {
     if ((month == 4 || month == 6 || month == 9 || month == 11) && day > 30) {
         return 0;
     }
-    if (month == 2 && day > 28) { // 簡單檢查，不考慮閏年
+    if (month == 2 && day > 28) { 
         return 0;
     }
     return 1;
 }
 
-// 驗證時間格式
 int isValidTime(char *time) {
     int hour, minute;
     if (sscanf(time, "%2d:%2d", &hour, &minute) != 2) {
@@ -99,7 +97,6 @@ int isValidTime(char *time) {
     return 1;
 }
 
-// 驗證會員名稱
 int isValidMember(char *memberName) {
     for (int i = 0; i < 5; i++) {
         if (strcmp(members[i], memberName) == 0) {
@@ -109,7 +106,6 @@ int isValidMember(char *memberName) {
     return 0;
 }
 
-// 驗證設備名稱
 int isValidResource(char *resource) {
     for (int i = 0; i < MAX_RESOURCES; i++) {
         if (strcmp(resourceNames[i], resource) == 0) {
@@ -549,97 +545,65 @@ int main() {
                     strcpy(essentials[i], "");
                 }
                 if (strncmp(line, "addParking", 10) == 0) {
-                    sscanf(line, "addParking -%s %s %s %f %s %s %s %s %s %s %s", 
-                           memberName, date, time, &duration, essentials[0], essentials[1], essentials[2], essentials[3], essentials[4], essentials[5], essentials[6]);
-                    if (!isValidMember(memberName)) {
-                        printf("Invalid member name in batch: %s\n", memberName);
+                    sscanf(line, "addParking -%s %s %s %f %s %s %s %s %s %s %s",
+                           memberName, date, time, &duration, essentials[0], essentials[1], essentials[2],
+                           essentials[3], essentials[4], essentials[5], essentials[6]);
+                    if (!isValidMember(memberName) || !isValidDate(date) || !isValidTime(time)) {
+                        printf("Invalid input in batch: %s\n", line);
                         continue;
                     }
-                    if (!isValidDate(date)) {
-                        printf("Invalid date format in batch: %s (Expected: YYYY-MM-DD)\n", date);
-                        continue;
-                    }
-                    if (!isValidTime(time)) {
-                        printf("Invalid time format in batch: %s (Expected: HH:MM, 00:00-23:59)\n", time);
-                        continue;
-                    }
-                    for (int i = 0; i < MAX_RESOURCES; i++) {
-                        if (strlen(essentials[i]) > 0 && !isValidResource(essentials[i])) {
+                    for (int i = 0; i < MAX_RESOURCES && strlen(essentials[i]) > 0; i++) {
+                        if (!isValidResource(essentials[i])) {
                             printf("Invalid resource in batch: %s\n", essentials[i]);
-                            goto skip_batch;
+                            continue;
                         }
                     }
                     addBooking(memberName, date, time, duration, essentials, PRIORITY_PARKING);
-                } 
-                else if (strncmp(line, "addReservation", 14) == 0) {
-                    sscanf(line, "addReservation -%s %s %s %f %s %s %s %s %s %s %s", 
-                           memberName, date, time, &duration, essentials[0], essentials[1], essentials[2], essentials[3], essentials[4], essentials[5], essentials[6]);
-                    if (!isValidMember(memberName)) {
-                        printf("Invalid member name in batch: %s\n", memberName);
+                    printf("-> [Pending] %s\n", line);
+                } else if (strncmp(line, "addReservation", 14) == 0) {
+                    sscanf(line, "addReservation -%s %s %s %f %s %s %s %s %s %s %s",
+                           memberName, date, time, &duration, essentials[0], essentials[1], essentials[2],
+                           essentials[3], essentials[4], essentials[5], essentials[6]);
+                    if (!isValidMember(memberName) || !isValidDate(date) || !isValidTime(time)) {
+                        printf("Invalid input in batch: %s\n", line);
                         continue;
                     }
-                    if (!isValidDate(date)) {
-                        printf("Invalid date format in batch: %s (Expected: YYYY-MM-DD)\n", date);
-                        continue;
-                    }
-                    if (!isValidTime(time)) {
-                        printf("Invalid time format in batch: %s (Expected: HH:MM, 00:00-23:59)\n", time);
-                        continue;
-                    }
-                    for (int i = 0; i < MAX_RESOURCES; i++) {
-                        if (strlen(essentials[i]) > 0 && !isValidResource(essentials[i])) {
+                    for (int i = 0; i < MAX_RESOURCES && strlen(essentials[i]) > 0; i++) {
+                        if (!isValidResource(essentials[i])) {
                             printf("Invalid resource in batch: %s\n", essentials[i]);
-                            goto skip_batch;
+                            continue;
                         }
                     }
                     addBooking(memberName, date, time, duration, essentials, PRIORITY_RESERVATION);
-                } 
-                else if (strncmp(line, "addEvent", 8) == 0) {
-                    sscanf(line, "addEvent -%s %s %s %f %s %s %s %s %s %s %s", 
-                           memberName, date, time, &duration, essentials[0], essentials[1], essentials[2], essentials[3], essentials[4], essentials[5], essentials[6]);
-                    if (!isValidMember(memberName)) {
-                        printf("Invalid member name in batch: %s\n", memberName);
+                    printf("-> [Pending] %s\n", line);
+                } else if (strncmp(line, "addEvent", 8) == 0) {
+                    sscanf(line, "addEvent -%s %s %s %f %s %s %s %s %s %s %s",
+                           memberName, date, time, &duration, essentials[0], essentials[1], essentials[2],
+                           essentials[3], essentials[4], essentials[5], essentials[6]);
+                    if (!isValidMember(memberName) || !isValidDate(date) || !isValidTime(time)) {
+                        printf("Invalid input in batch: %s\n", line);
                         continue;
                     }
-                    if (!isValidDate(date)) {
-                        printf("Invalid date format in batch: %s (Expected: YYYY-MM-DD)\n", date);
-                        continue;
-                    }
-                    if (!isValidTime(time)) {
-                        printf("Invalid time format in batch: %s (Expected: HH:MM, 00:00-23:59)\n", time);
-                        continue;
-                    }
-                    for (int i = 0; i < MAX_RESOURCES; i++) {
-                        if (strlen(essentials[i]) > 0 && !isValidResource(essentials[i])) {
+                    for (int i = 0; i < MAX_RESOURCES && strlen(essentials[i]) > 0; i++) {
+                        if (!isValidResource(essentials[i])) {
                             printf("Invalid resource in batch: %s\n", essentials[i]);
-                            goto skip_batch;
+                            continue;
                         }
                     }
                     addBooking(memberName, date, time, duration, essentials, PRIORITY_EVENT);
-                } 
-                else if (strncmp(line, "bookEssentials", 14) == 0) {
-                    sscanf(line, "bookEssentials -%s %s %s %f %s", 
+                    printf("-> [Pending] %s\n", line);
+                } else if (strncmp(line, "bookEssentials", 14) == 0) {
+                    sscanf(line, "bookEssentials -%s %s %s %f %s",
                            memberName, date, time, &duration, essentials[0]);
-                    if (!isValidMember(memberName)) {
-                        printf("Invalid member name in batch: %s\n", memberName);
-                        continue;
-                    }
-                    if (!isValidDate(date)) {
-                        printf("Invalid date format in batch: %s (Expected: YYYY-MM-DD)\n", date);
-                        continue;
-                    }
-                    if (!isValidTime(time)) {
-                        printf("Invalid time format in batch: %s (Expected: HH:MM, 00:00-23:59)\n", time);
-                        continue;
-                    }
-                    if (strlen(essentials[0]) > 0 && !isValidResource(essentials[0])) {
-                        printf("Invalid resource in batch: %s\n", essentials[0]);
+                    if (!isValidMember(memberName) || !isValidDate(date) || !isValidTime(time) || (strlen(essentials[0]) > 0 && !isValidResource(essentials[0]))) {
+                        printf("Invalid input in batch: %s\n", line);
                         continue;
                     }
                     addBooking(memberName, date, time, duration, essentials, PRIORITY_ESSENTIAL);
+                    printf("-> [Pending] %s\n", line);
+                } else {
+                    printf("Invalid command in batch: %s\n", line);
                 }
-            skip_batch:
-                continue;
             }
             fclose(file);
         }
@@ -795,8 +759,74 @@ void processBookings_FCFS() {
 }
 
 void processBookings_Priority() {
-    qsort(bookings, totalBookings, sizeof(bookings[0]), compareBookings);
-    processBookings_FCFS();
+    qsort(bookings, totalBookings, sizeof(Booking), compareBookings);
+    for (int i = 0; i < totalBookings; i++) {
+        Booking *b = &bookings[i];
+        int startSlot = timeToSlot(b->time);
+        int durationSlots = (int)b->duration;
+        int slotFound = -1;
+
+        // check if booked essentials are available
+        for (int j = 0; j < PARKING_SLOTS; j++) {
+            int available = 1;
+            for (int k = startSlot; k < startSlot + durationSlots; k++) {
+                if (parkingAvailability[k][j] == 0) {
+                    available = 0;
+                    break;
+                }
+            }
+            if (available) {
+                slotFound = j;
+                break;
+            }
+        }
+
+        int resourcesAllocated = allocateResources(startSlot, durationSlots, b->essentials);
+
+        if (slotFound != -1 && resourcesAllocated) {
+            for (int k = startSlot; k < startSlot + durationSlots; k++) {
+                parkingAvailability[k][slotFound] = 0;
+            }
+            b->parkingSlot = slotFound;
+            b->accepted = 1;
+        } else if (slotFound == -1) {
+            // try to find a slot with the same date and priority
+            for (int j = 0; j < totalBookings; j++) {
+                Booking *other = &bookings[j];
+                if (other != b && other->accepted && other->priority > b->priority &&
+                    strcmp(other->date, b->date) == 0 && timeToSlot(other->time) == startSlot) {
+                    int otherDuration = (int)other->duration;
+                    releaseResources(startSlot, otherDuration, other->essentials);
+                    for (int k = startSlot; k < startSlot + otherDuration; k++) {
+                        parkingAvailability[k][other->parkingSlot] = 1;
+                    }
+                    other->accepted = 0;
+                    snprintf(other->reasonForRejection, sizeof(other->reasonForRejection),
+                             "Displaced by higher priority booking.");
+                    slotFound = other->parkingSlot;
+                    break;
+                }
+            }
+            if (slotFound != -1 && (resourcesAllocated || (resourcesAllocated = allocateResources(startSlot, durationSlots, b->essentials)))) {
+                for (int k = startSlot; k < startSlot + durationSlots; k++) {
+                    parkingAvailability[k][slotFound] = 0;
+                }
+                b->parkingSlot = slotFound;
+                b->accepted = 1;
+            } else {
+                releaseResources(startSlot, durationSlots, b->essentials);
+                b->accepted = 0;
+                snprintf(b->reasonForRejection, sizeof(b->reasonForRejection),
+                         resourcesAllocated ? "No available parking slots." : "One or more essentials unavailable.");
+                suggestAlternativeSlots(durationSlots, b->memberName, b->date, b->time);
+            }
+        } else {
+            releaseResources(startSlot, durationSlots, b->essentials);
+            b->accepted = 0;
+            snprintf(b->reasonForRejection, sizeof(b->reasonForRejection), "One or more essentials unavailable.");
+            suggestAlternativeSlots(durationSlots, b->memberName, b->date, b->time);
+        }
+    }
 }
 
 void processBookings_Optimized() {
@@ -925,7 +955,7 @@ void printBookings(const char *algorithm) {
 
     printf("\n*** ACCEPTED Bookings ***\n");
     for (int m = 0; m < 5; m++) {
-        char* member = members[m];
+        char *member = members[m];
         int hasBookings = 0;
         for (int i = 0; i < totalBookings; i++) {
             Booking *b = &bookings[i];
@@ -936,7 +966,7 @@ void printBookings(const char *algorithm) {
                     printf("===============================================================\n");
                     hasBookings = 1;
                 }
-                char* endTime = calculateEndTime(b->time, b->duration);
+                char *endTime = calculateEndTime(b->time, b->duration);
                 char devices[100] = "";
                 for (int j = 0; j < MAX_RESOURCES; j++) {
                     if (strlen(b->essentials[j]) > 0) {
@@ -956,7 +986,7 @@ void printBookings(const char *algorithm) {
 
     printf("\n*** Parking Booking - REJECTED / %s ***\n", algorithm);
     for (int m = 0; m < 5; m++) {
-        char* member = members[m];
+        char *member = members[m];
         int rejectedCount = 0;
         for (int i = 0; i < totalBookings; i++) {
             if (strcmp(bookings[i].memberName, member) == 0 && !bookings[i].accepted) {
@@ -965,12 +995,12 @@ void printBookings(const char *algorithm) {
         }
         if (rejectedCount > 0) {
             printf("%s (there are %d bookings rejected):\n", member, rejectedCount);
-            printf("%-12s %-6s %-6s %-12s %-20s\n", "Date", "Start", "End", "Type", "Essentials");
-            printf("===============================================================\n");
+            printf("%-12s %-6s %-6s %-12s %-20s %-30s\n", "Date", "Start", "End", "Type", "Essentials", "Reason");
+            printf("================================================================================\n");
             for (int i = 0; i < totalBookings; i++) {
                 Booking *b = &bookings[i];
                 if (strcmp(b->memberName, member) == 0 && !b->accepted) {
-                    char* endTime = calculateEndTime(b->time, b->duration);
+                    char *endTime = calculateEndTime(b->time, b->duration);
                     char essentials[100] = "";
                     for (int j = 0; j < MAX_RESOURCES; j++) {
                         if (strlen(b->essentials[j]) > 0) {
@@ -980,34 +1010,47 @@ void printBookings(const char *algorithm) {
                     }
                     if (strlen(essentials) > 0) essentials[strlen(essentials) - 2] = '\0';
                     else strcpy(essentials, "-");
-                    printf("%-12s %-6s %-6s %-12s %-20s\n", b->date, b->time, endTime, getBookingType(b->priority), essentials);
+                    printf("%-12s %-6s %-6s %-12s %-20s %-30s\n", b->date, b->time, endTime,
+                           getBookingType(b->priority), essentials, b->reasonForRejection);
                     free(endTime);
                 }
             }
+            printf("\n");
         }
     }
-    printf("\n- End -\n");
+    printf("- End -\n");
 }
 
 void generateSummaryReport() {
     Booking originalBookings[MAX_BOOKINGS];
-    memcpy(originalBookings, bookings, sizeof(bookings));
     int originalParking[TIME_SLOTS][PARKING_SLOTS];
     int originalResources[TIME_SLOTS][MAX_RESOURCES];
+    memcpy(originalBookings, bookings, sizeof(bookings));
     memcpy(originalParking, parkingAvailability, sizeof(parkingAvailability));
     memcpy(originalResources, resourceAvailability, sizeof(resourceAvailability));
 
-    int fcfsAccepted = 0;
+    int fcfsAccepted = 0, prioAccepted = 0, optiAccepted = 0;
+    float resourceUsage[MAX_RESOURCES] = {0};
+
+    // FCFS
     processBookings_FCFS();
     for (int i = 0; i < totalBookings; i++) {
-        if (bookings[i].accepted) fcfsAccepted++;
+        if (bookings[i].accepted) {
+            fcfsAccepted++;
+            int slots = (int)bookings[i].duration;
+            for (int j = 0; j < MAX_RESOURCES; j++) {
+                if (contains(bookings[i].essentials, resourceNames[j]) != -1) {
+                    resourceUsage[j] += slots;
+                }
+            }
+        }
     }
 
     memcpy(bookings, originalBookings, sizeof(bookings));
     memcpy(parkingAvailability, originalParking, sizeof(parkingAvailability));
     memcpy(resourceAvailability, originalResources, sizeof(resourceAvailability));
 
-    int prioAccepted = 0;
+    // Priority
     processBookings_Priority();
     for (int i = 0; i < totalBookings; i++) {
         if (bookings[i].accepted) prioAccepted++;
@@ -1017,34 +1060,28 @@ void generateSummaryReport() {
     memcpy(parkingAvailability, originalParking, sizeof(parkingAvailability));
     memcpy(resourceAvailability, originalResources, sizeof(resourceAvailability));
 
-    int optiAccepted = 0;
+    // Optimized
     processBookings_Optimized();
     for (int i = 0; i < totalBookings; i++) {
         if (bookings[i].accepted) optiAccepted++;
     }
 
     float totalSlots = TIME_SLOTS * PARKING_SLOTS * 7;
-    float lockerUsage = 0, batteryUsage = 0;
-    for (int i = 0; i < totalBookings; i++) {
-        if (bookings[i].accepted) {
-            int slots = (int)bookings[i].duration;
-            if (contains(bookings[i].essentials, "locker") != -1) lockerUsage += slots;
-            if (contains(bookings[i].essentials, "battery") != -1) batteryUsage += slots;
-        }
+    float utilization[MAX_RESOURCES];
+    for (int i = 0; i < MAX_RESOURCES; i++) {
+        utilization[i] = (resourceUsage[i] / (totalSlots * RESOURCE_STOCK)) * 100;
     }
-    float lockerUtilization = (lockerUsage / (totalSlots * RESOURCE_STOCK)) * 100;
-    float batteryUtilization = (batteryUsage / (totalSlots * RESOURCE_STOCK)) * 100;
 
     printf("\n*** Parking Booking Manager - Summary Report ***\n");
     printf("Performance:\n");
-    
     printf("For FCFS:\n");
     printf("    Total Number of Bookings Received: %d (100%%)\n", totalBookings);
     printf("    Number of Bookings Assigned: %d (%.1f%%)\n", fcfsAccepted, (float)fcfsAccepted / totalBookings * 100);
     printf("    Number of Bookings Rejected: %d (%.1f%%)\n", totalBookings - fcfsAccepted, (float)(totalBookings - fcfsAccepted) / totalBookings * 100);
     printf("    Utilization of Time slot:\n");
-    printf("    locker - %.1f%%\n", lockerUtilization);
-    printf("    Battery - %.1f%%\n", batteryUtilization);
+    for (int i = 0; i < MAX_RESOURCES; i++) {
+        printf("    %s - %.1f%%\n", resourceNames[i], utilization[i]);
+    }
     printf("    Invalid request(s) made: 0\n");
 
     printf("For PRIO:\n");
@@ -1052,8 +1089,9 @@ void generateSummaryReport() {
     printf("    Number of Bookings Assigned: %d (%.1f%%)\n", prioAccepted, (float)prioAccepted / totalBookings * 100);
     printf("    Number of Bookings Rejected: %d (%.1f%%)\n", totalBookings - prioAccepted, (float)(totalBookings - prioAccepted) / totalBookings * 100);
     printf("    Utilization of Time slot:\n");
-    printf("    locker - %.1f%%\n", lockerUtilization);
-    printf("    Battery - %.1f%%\n", batteryUtilization);
+    for (int i = 0; i < MAX_RESOURCES; i++) {
+        printf("    %s - %.1f%%\n", resourceNames[i], utilization[i]);
+    }
     printf("    Invalid request(s) made: 0\n");
 
     printf("For OPTI:\n");
@@ -1061,8 +1099,9 @@ void generateSummaryReport() {
     printf("    Number of Bookings Assigned: %d (%.1f%%)\n", optiAccepted, (float)optiAccepted / totalBookings * 100);
     printf("    Number of Bookings Rejected: %d (%.1f%%)\n", totalBookings - optiAccepted, (float)(totalBookings - optiAccepted) / totalBookings * 100);
     printf("    Utilization of Time slot:\n");
-    printf("    locker - %.1f%%\n", lockerUtilization);
-    printf("    Battery - %.1f%%\n", batteryUtilization);
+    for (int i = 0; i < MAX_RESOURCES; i++) {
+        printf("    %s - %.1f%%\n", resourceNames[i], utilization[i]);
+    }
     printf("    Invalid request(s) made: 0\n");
 
     memcpy(bookings, originalBookings, sizeof(bookings));
