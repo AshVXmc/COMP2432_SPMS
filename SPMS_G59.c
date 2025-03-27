@@ -63,6 +63,8 @@ int compareBookings(const void *a, const void *b);
 int getResourceIndex(const char *resourceName);
 int contains(char essentials[MAX_RESOURCES][20], const char *item);
 void suggestAlternativeSlots(int durationSlots, char *memberName, char *date, char *time);
+char* calculateEndTime(const char* startTime, float duration); // New helper function
+const char* getBookingType(int priority); // New helper function
 
 int main() {
     char command[128];
@@ -125,7 +127,7 @@ int main() {
                     write(pipe_fd[1], bookings, sizeof(bookings)); // transfer data to parent process
                     close(pipe_fd[1]); // close write end
                     exit(0);
-                } else { // perrent process
+                } else { // parent process
                     close(pipe_fd[1]); // close write end
                     wait(NULL); // wait for child process to finish
                     read(pipe_fd[0], bookings, sizeof(bookings)); // receive updated bookings
@@ -620,18 +622,129 @@ void releaseResources(int startSlot, int durationSlots, char essentials[MAX_RESO
     }
 }
 
+// Helper function to calculate end time
+char* calculateEndTime(const char* startTime, float duration) {
+    int startHour, startMin;
+    sscanf(startTime, "%d:%d", &startHour, &startMin);
+    int totalMin = startHour * 60 + startMin + (int)(duration * 60);
+    int endHour = totalMin / 60 % 24;
+    int endMin = totalMin % 60;
+    char* endTime = (char*)malloc(6 * sizeof(char));
+    sprintf(endTime, "%02d:%02d", endHour, endMin);
+    return endTime;
+}
+
+// Helper function to get booking type
+const char* getBookingType(int priority) {
+    switch (priority) {
+        case PRIORITY_EVENT: return "Event";
+        case PRIORITY_RESERVATION: return "Reservation";
+        case PRIORITY_PARKING: return "Parking";
+        case PRIORITY_ESSENTIAL: return "Essentials";
+        default: return "Unknown";
+    }
+}
+
+// Updated printBookings function
 void printBookings(const char *algorithm) {
-    int i;
     printf("\n*** Booking Schedule (%s) ***\n", algorithm);
-    for (i = 0; i < totalBookings; i++) {
-        Booking *b = &bookings[i];
-        if (b->accepted) {
-            printf("ACCEPTED: %s on %s at %s for %.1f hours. Parking Slot: %d\n", b->memberName, b->date, b->time, b->duration, b->parkingSlot);
-        } 
-        else {
-            printf("REJECTED: %s on %s at %s for %.1f hours. Reason: %s\n", b->memberName, b->date, b->time, b->duration, b->reasonForRejection);
+
+    // List of members (fixed as per PDF assumptions)
+    char members[5][20] = {"member_A", "member_B", "member_C", "member_D", "member_E"};
+
+    // Print ACCEPTED bookings
+    printf("\n*** ACCEPTED Bookings ***\n");
+    for (int m = 0; m < 5; m++) {
+        char* member = members[m];
+        int hasBookings = 0;
+        for (int i = 0; i < totalBookings; i++) {
+            Booking *b = &bookings[i];
+            if (strcmp(b->memberName, member) == 0 && b->accepted) {
+                if (!hasBookings) {
+                    printf("%s has the following bookings:\n", member);
+                    printf("%-10s %-6s %-6s %-12s %-20s\n", "Date", "Start", "End", "Type", "Device");
+                    printf("===============================================================================");
+                    hasBookings = 1;
+                }
+                char* endTime = calculateEndTime(b->time, b->duration);
+                char devices[100] = "";
+                for (int j = 0; j < MAX_RESOURCES; j++) {
+                    if (strlen(b->essentials[j]) > 0) {
+                        strcat(devices, b->essentials[j]);
+                        strcat(devices, ", ");
+                    }
+                }
+                if (strlen(devices) > 0) devices[strlen(devices) - 2] = '\0'; // Remove trailing ", "
+                else strcpy(devices, "*"); // Default for no essentials
+                printf("%-10s %-6s %-6s %-12s %-20s\n", b->date, b->time, endTime, getBookingType(b->priority), devices);
+                free(endTime);
+            }
         }
     }
+
+    // Print REJECTED bookings
+    printf("\n*** Parking Booking - REJECTED / %s ***\n", algorithm);
+    for (int m = 0; m < 5; m++) {
+        char* member = members[m];
+        int rejectedCount = 0;
+        for (int i = 0; i < totalBookings; i++) {
+            if (strcmp(bookings[i].memberName, member) == 0 && !bookings[i].accepted) {
+                rejectedCount++;
+            }
+        }
+        if (rejectedCount > 0) {
+            printf("%s (there are %d bookings rejected):\n", member, rejectedCount);
+            printf("%-10s %-6s %-6s %-12s %-20s\n", "Date", "Start", "End", "Type", "Essentials");
+            printf("===============================================================================");
+            for (int i = 0; i < totalBookings; i++) {
+                Booking *b = &bookings[i];
+                if (strcmp(b->memberName, member) == 0 && !b->accepted) {
+                    char* endTime = calculateEndTime(b->time, b->duration);
+                    char essentials[100] = "";
+                    for (int j = 0; j < MAX_RESOURCES; j++) {
+                        if (strlen(b->essentials[j]) > 0) {
+                            strcat(essentials, b->essentials[j]);
+                            strcat(essentials, ", ");
+                        }
+                    }
+                    if (strlen(essentials) > 0) essentials[strlen(essentials) - 2] = '\0';
+                    else strcpy(essentials, "-"); // Default for no essentials
+                    printf("%-10s %-6s %-6s %-12s %-20s\n", b->date, b->time, endTime, getBookingType(b->priority), essentials);
+                    free(endTime);
+                }
+            }
+        }
+        printf("- END -\n")
+    }
+    printf("===============================================================\n")
+}
+
+void generateSummaryReport() {
+    int fcfsAccepted = 0, prioAccepted = 0, optiAccepted = 0;
+    for (int i = 0; i < totalBookings; i++) {
+        processBookings_FCFS();
+        if (bookings[i].accepted) fcfsAccepted++;
+        processBookings_Priority();
+        if (bookings[i].accepted) prioAccepted++;
+        processBookings_Optimized();
+        if (bookings[i].accepted) optiAccepted++;
+    }
+
+    printf("\n*** Summary Report ***\n");
+    printf("For FCFS:\n");
+    printf("Total Number of Bookings Received: %d\n", totalBookings);
+    printf("Number of Bookings Assigned: %d\n", fcfsAccepted);
+    printf("Number of Bookings Rejected: %d\n", totalBookings - fcfsAccepted);
+
+    printf("For PRIO:\n");
+    printf("Total Number of Bookings Received: %d\n", totalBookings);
+    printf("Number of Bookings Assigned: %d\n", prioAccepted);
+    printf("Number of Bookings Rejected: %d\n", totalBookings - prioAccepted);
+
+    printf("For OPTI:\n");
+    printf("Total Number of Bookings Received: %d\n", totalBookings);
+    printf("Number of Bookings Assigned: %d\n", optiAccepted);
+    printf("Number of Bookings Rejected: %d\n", totalBookings - optiAccepted);
 }
 
 int timeToSlot(char *time) {
