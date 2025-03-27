@@ -757,7 +757,7 @@ void printBookings(const char *algorithm) {
                 free(endTime);
             }
         }
-        if (hasBookings) printf("- End -\n");
+        if (hasBookings) printf("\n");
     }
 
     // Print REJECTED bookings
@@ -791,7 +791,6 @@ void printBookings(const char *algorithm) {
                     free(endTime);
                 }
             }
-            printf("- End -\n");
         }
     }
     printf("===============================================================\n");
