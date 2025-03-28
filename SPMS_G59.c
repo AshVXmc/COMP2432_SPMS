@@ -456,7 +456,9 @@ int main() {
                 continue;
             }
             char line[128];
+            int lineNum = 0;
             while (fgets(line, sizeof(line), file)) {
+                lineNum++;
                 line[strcspn(line, "\n")] = 0;
                 for (int i = 0; i < MAX_RESOURCES; i++) {
                     strcpy(essentials[i], "");
@@ -465,13 +467,21 @@ int main() {
                     sscanf(line, "addParking -%s %s %s %f %s %s %s %s %s %s %s",
                            memberName, date, time, &duration, essentials[0], essentials[1], essentials[2],
                            essentials[3], essentials[4], essentials[5], essentials[6]);
-                    if (!isValidMember(memberName) || !isValidDate(date) || !isValidTime(time)) {
-                        printf("Invalid input in batch: %s\n", line);
+                    if (!isValidMember(memberName)) {
+                        printf("Error in batch file %s at line %d: Invalid member name '%s'\n", batchFile, lineNum, memberName);
+                        continue;
+                    }
+                    if (!isValidDate(date)) {
+                        printf("Error in batch file %s at line %d: Invalid date '%s' (Expected: YYYY-MM-DD)\n", batchFile, lineNum, date);
+                        continue;
+                    }
+                    if (!isValidTime(time)) {
+                        printf("Error in batch file %s at line %d: Invalid time '%s' (Expected: HH:MM)\n", batchFile, lineNum, time);
                         continue;
                     }
                     for (int i = 0; i < MAX_RESOURCES && strlen(essentials[i]) > 0; i++) {
                         if (!isValidResource(essentials[i])) {
-                            printf("Invalid resource in batch: %s\n", essentials[i]);
+                            printf("Error in batch file %s at line %d: Invalid resource '%s'\n", batchFile, lineNum, essentials[i]);
                             continue;
                         }
                     }
@@ -481,13 +491,21 @@ int main() {
                     sscanf(line, "addReservation -%s %s %s %f %s %s %s %s %s %s %s",
                            memberName, date, time, &duration, essentials[0], essentials[1], essentials[2],
                            essentials[3], essentials[4], essentials[5], essentials[6]);
-                    if (!isValidMember(memberName) || !isValidDate(date) || !isValidTime(time)) {
-                        printf("Invalid input in batch: %s\n", line);
+                    if (!isValidMember(memberName)) {
+                        printf("Error in batch file %s at line %d: Invalid member name '%s'\n", batchFile, lineNum, memberName);
+                        continue;
+                    }
+                    if (!isValidDate(date)) {
+                        printf("Error in batch file %s at line %d: Invalid date '%s' (Expected: YYYY-MM-DD)\n", batchFile, lineNum, date);
+                        continue;
+                    }
+                    if (!isValidTime(time)) {
+                        printf("Error in batch file %s at line %d: Invalid time '%s' (Expected: HH:MM)\n", batchFile, lineNum, time);
                         continue;
                     }
                     for (int i = 0; i < MAX_RESOURCES && strlen(essentials[i]) > 0; i++) {
                         if (!isValidResource(essentials[i])) {
-                            printf("Invalid resource in batch: %s\n", essentials[i]);
+                            printf("Error in batch file %s at line %d: Invalid resource '%s'\n", batchFile, lineNum, essentials[i]);
                             continue;
                         }
                     }
@@ -497,13 +515,21 @@ int main() {
                     sscanf(line, "addEvent -%s %s %s %f %s %s %s %s %s %s %s",
                            memberName, date, time, &duration, essentials[0], essentials[1], essentials[2],
                            essentials[3], essentials[4], essentials[5], essentials[6]);
-                    if (!isValidMember(memberName) || !isValidDate(date) || !isValidTime(time)) {
-                        printf("Invalid input in batch: %s\n", line);
+                    if (!isValidMember(memberName)) {
+                        printf("Error in batch file %s at line %d: Invalid member name '%s'\n", batchFile, lineNum, memberName);
+                        continue;
+                    }
+                    if (!isValidDate(date)) {
+                        printf("Error in batch file %s at line %d: Invalid date '%s' (Expected: YYYY-MM-DD)\n", batchFile, lineNum, date);
+                        continue;
+                    }
+                    if (!isValidTime(time)) {
+                        printf("Error in batch file %s at line %d: Invalid time '%s' (Expected: HH:MM)\n", batchFile, lineNum, time);
                         continue;
                     }
                     for (int i = 0; i < MAX_RESOURCES && strlen(essentials[i]) > 0; i++) {
                         if (!isValidResource(essentials[i])) {
-                            printf("Invalid resource in batch: %s\n", essentials[i]);
+                            printf("Error in batch file %s at line %d: Invalid resource '%s'\n", batchFile, lineNum, essentials[i]);
                             continue;
                         }
                     }
@@ -512,14 +538,26 @@ int main() {
                 } else if (strncmp(line, "bookEssentials", 14) == 0) {
                     sscanf(line, "bookEssentials -%s %s %s %f %s",
                            memberName, date, time, &duration, essentials[0]);
-                    if (!isValidMember(memberName) || !isValidDate(date) || !isValidTime(time) || (strlen(essentials[0]) > 0 && !isValidResource(essentials[0]))) {
-                        printf("Invalid input in batch: %s\n", line);
+                    if (!isValidMember(memberName)) {
+                        printf("Error in batch file %s at line %d: Invalid member name '%s'\n", batchFile, lineNum, memberName);
+                        continue;
+                    }
+                    if (!isValidDate(date)) {
+                        printf("Error in batch file %s at line %d: Invalid date '%s' (Expected: YYYY-MM-DD)\n", batchFile, lineNum, date);
+                        continue;
+                    }
+                    if (!isValidTime(time)) {
+                        printf("Error in batch file %s at line %d: Invalid time '%s' (Expected: HH:MM)\n", batchFile, lineNum, time);
+                        continue;
+                    }
+                    if (strlen(essentials[0]) > 0 && !isValidResource(essentials[0])) {
+                        printf("Error in batch file %s at line %d: Invalid resource '%s'\n", batchFile, lineNum, essentials[0]);
                         continue;
                     }
                     addBooking(memberName, date, time, duration, essentials, PRIORITY_ESSENTIAL);
                     printf("-> [Pending] %s\n", line);
                 } else {
-                    printf("Invalid command in batch: %s\n", line);
+                    printf("Error in batch file %s at line %d: Unrecognized command '%s'\n", batchFile, lineNum, line);
                 }
             }
             fclose(file);
