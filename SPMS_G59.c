@@ -210,7 +210,7 @@ int main() {
             for (int i = 0; i < MAX_RESOURCES; i++) {
                 strcpy(essentials[i], "");
             }
-            // Sample command: bookEssentials –memberName 2025-05-011 13:00 4.0 battery;
+            // Sample command: bookEssentials –memberName 2025-05-011 13:00 4.0 battery
             sscanf(command, "bookEssentials -%s %s %s %f %s", memberName, date, time, &duration, essentials[0]);
             if (!isValidMember(memberName)) {
                 printf("Invalid member name: %s\n", memberName);
@@ -631,16 +631,16 @@ void addBooking(char *memberName, char *date, char *time, float duration, char e
 }
 
 void processBookings_FCFS() {
-    int i, j, k;
-    for (i = 0; i < totalBookings; i++) {
+    for (int i = 0; i < totalBookings; i++) {
         Booking *b = &bookings[i];
         int startSlot = timeToSlot(b->time);
         int durationSlots = (int)b->duration;
-
         int slotFound = -1;
-        for (j = 0; j < PARKING_SLOTS; j++) {
+
+        // check if there is a slot available
+        for (int j = 0; j < PARKING_SLOTS; j++) {
             int available = 1;
-            for (k = startSlot; k < startSlot + durationSlots; k++) {
+            for (int k = startSlot; k < startSlot + durationSlots; k++) {
                 if (parkingAvailability[k][j] == 0) {
                     available = 0;
                     break;
@@ -655,21 +655,45 @@ void processBookings_FCFS() {
         int resourcesAllocated = allocateResources(startSlot, durationSlots, b->essentials);
 
         if (slotFound != -1 && resourcesAllocated) {
-            for (k = startSlot; k < startSlot + durationSlots; k++) {
+            for (int k = startSlot; k < startSlot + durationSlots; k++) {
                 parkingAvailability[k][slotFound] = 0;
             }
-            b->parkingSlot = slotFound; 
+            b->parkingSlot = slotFound;
             b->accepted = 1;
-        } 
-        else {
+        } else if (slotFound == -1) {
+            for (int j = 0; j < totalBookings; j++) {
+                Booking *other = &bookings[j];
+                if (other != b && other->accepted && other->priority > b->priority &&
+                    strcmp(other->date, b->date) == 0 && timeToSlot(other->time) == startSlot) {
+                    int otherDuration = (int)other->duration;
+                    releaseResources(startSlot, otherDuration, other->essentials);
+                    for (int k = startSlot; k < startSlot + otherDuration; k++) {
+                        parkingAvailability[k][other->parkingSlot] = 1;
+                    }
+                    other->accepted = 0;
+                    snprintf(other->reasonForRejection, sizeof(other->reasonForRejection),
+                             "Displaced by higher priority booking.");
+                    slotFound = other->parkingSlot;
+                    break;
+                }
+            }
+            if (slotFound != -1 && (resourcesAllocated || (resourcesAllocated = allocateResources(startSlot, durationSlots, b->essentials)))) {
+                for (int k = startSlot; k < startSlot + durationSlots; k++) {
+                    parkingAvailability[k][slotFound] = 0;
+                }
+                b->parkingSlot = slotFound;
+                b->accepted = 1;
+            } else {
+                releaseResources(startSlot, durationSlots, b->essentials);
+                b->accepted = 0;
+                snprintf(b->reasonForRejection, sizeof(b->reasonForRejection),
+                         resourcesAllocated ? "No available parking slots." : "One or more essentials unavailable.");
+                suggestAlternativeSlots(durationSlots, b->memberName, b->date, b->time);
+            }
+        } else {
             releaseResources(startSlot, durationSlots, b->essentials);
             b->accepted = 0;
-            if (slotFound == -1) {
-                snprintf(b->reasonForRejection, sizeof(b->reasonForRejection), "No available parking slots.");
-            } 
-            if (!resourcesAllocated) {
-                snprintf(b->reasonForRejection, sizeof(b->reasonForRejection), "One or more booked essentials are unavailable.");
-            }
+            snprintf(b->reasonForRejection, sizeof(b->reasonForRejection), "One or more essentials unavailable.");
             suggestAlternativeSlots(durationSlots, b->memberName, b->date, b->time);
         }
     }
@@ -707,7 +731,7 @@ void processBookings_Priority() {
             b->parkingSlot = slotFound;
             b->accepted = 1;
         } else if (slotFound == -1) {
-            // try to find a slot with the same date and priority
+            // if no slot found, check if there is any slot available
             for (int j = 0; j < totalBookings; j++) {
                 Booking *other = &bookings[j];
                 if (other != b && other->accepted && other->priority > b->priority &&
@@ -747,20 +771,17 @@ void processBookings_Priority() {
 }
 
 void processBookings_Optimized() {
-    processBookings_FCFS();
+    processBookings_FCFS();  // Call the FCFS algorithm first
 
-    int i, j, k, newStartSlot;
-    for (i = 0; i < totalBookings; i++) {
+    for (int i = 0; i < totalBookings; i++) {
         Booking *b = &bookings[i];
         if (b->accepted == 0) {
-            int startSlot = timeToSlot(b->time);
             int durationSlots = (int)b->duration;
-
-            for (newStartSlot = 0; newStartSlot < TIME_SLOTS - durationSlots; newStartSlot++) {
+            for (int newStartSlot = 0; newStartSlot < TIME_SLOTS - durationSlots; newStartSlot++) {
                 int slotFound = -1;
-                for (j = 0; j < PARKING_SLOTS; j++) {
+                for (int j = 0; j < PARKING_SLOTS; j++) {
                     int available = 1;
-                    for (k = newStartSlot; k < newStartSlot + durationSlots; k++) {
+                    for (int k = newStartSlot; k < newStartSlot + durationSlots; k++) {
                         if (parkingAvailability[k][j] == 0) {
                             available = 0;
                             break;
@@ -775,13 +796,40 @@ void processBookings_Optimized() {
                 int resourcesAllocated = allocateResources(newStartSlot, durationSlots, b->essentials);
 
                 if (slotFound != -1 && resourcesAllocated) {
-                    for (k = newStartSlot; k < newStartSlot + durationSlots; k++) {
+                    for (int k = newStartSlot; k < newStartSlot + durationSlots; k++) {
                         parkingAvailability[k][slotFound] = 0;
                     }
                     b->parkingSlot = slotFound;
                     b->accepted = 1;
-                    sprintf(b->time, "%02d:00", newStartSlot); // update the time
+                    sprintf(b->time, "%02d:00", newStartSlot);  // update booking time
                     break;
+                } else if (slotFound == -1) {
+                    // No slot found, send notification to customer
+                    for (int j = 0; j < totalBookings; j++) {
+                        Booking *other = &bookings[j];
+                        if (other != b && other->accepted && other->priority > b->priority &&
+                            strcmp(other->date, b->date) == 0 && timeToSlot(other->time) == newStartSlot) {
+                            int otherDuration = (int)other->duration;
+                            releaseResources(newStartSlot, otherDuration, other->essentials);
+                            for (int k = newStartSlot; k < newStartSlot + otherDuration; k++) {
+                                parkingAvailability[k][other->parkingSlot] = 1;
+                            }
+                            other->accepted = 0;
+                            snprintf(other->reasonForRejection, sizeof(other->reasonForRejection),
+                                     "Displaced by higher priority booking.");
+                            slotFound = other->parkingSlot;
+                            break;
+                        }
+                    }
+                    if (slotFound != -1 && (resourcesAllocated || (resourcesAllocated = allocateResources(newStartSlot, durationSlots, b->essentials)))) {
+                        for (int k = newStartSlot; k < newStartSlot + durationSlots; k++) {
+                            parkingAvailability[k][slotFound] = 0;
+                        }
+                        b->parkingSlot = slotFound;
+                        b->accepted = 1;
+                        sprintf(b->time, "%02d:00", newStartSlot);  // update the time field
+                        break;
+                    }
                 } else {
                     releaseResources(newStartSlot, durationSlots, b->essentials);
                 }
@@ -798,26 +846,40 @@ int compareBookings(const void *a, const void *b) {
 
 int allocateResources(int startSlot, int durationSlots, char essentials[MAX_RESOURCES][20]) {
     int resourceCount[MAX_RESOURCES] = {0};
-    int i, j;
-    for (i = 0; i < MAX_RESOURCES; i++) {
-        if (strcmp(essentials[i], "battery") == 0) resourceCount[0]++;
-        else if (strcmp(essentials[i], "cable") == 0) resourceCount[1]++;
-        else if (strcmp(essentials[i], "locker") == 0) resourceCount[2]++;
-        else if (strcmp(essentials[i], "umbrella") == 0) resourceCount[3]++;
-        else if (strcmp(essentials[i], "inflation") == 0) resourceCount[4]++;
-        else if (strcmp(essentials[i], "valetpark") == 0) resourceCount[5]++;
+    for (int i = 0; i < MAX_RESOURCES; i++) {
+        if (strcmp(essentials[i], "battery") == 0) {
+            resourceCount[0]++;  // battery
+            resourceCount[1]++;  // cable (dependency)
+        } else if (strcmp(essentials[i], "cable") == 0) {
+            resourceCount[1]++;  // cable
+            resourceCount[0]++;  // battery (dependency)
+        } else if (strcmp(essentials[i], "locker") == 0) {
+            resourceCount[2]++;  // locker
+            resourceCount[3]++;  // umbrella (dependency)
+        } else if (strcmp(essentials[i], "umbrella") == 0) {
+            resourceCount[3]++;  // umbrella
+            resourceCount[2]++;  // locker (dependency)
+        } else if (strcmp(essentials[i], "inflation") == 0) {
+            resourceCount[4]++;  // inflation
+            resourceCount[5]++;  // valetpark (dependency)
+        } else if (strcmp(essentials[i], "valetpark") == 0) {
+            resourceCount[5]++;  // valetpark
+            resourceCount[4]++;  // inflation (dependency)
+        }
     }
 
-    for (i = 0; i < MAX_RESOURCES; i++) {
-        for (j = startSlot; j < startSlot + durationSlots; j++) {
+    // check if there are enough resources available
+    for (int i = 0; i < MAX_RESOURCES; i++) {
+        for (int j = startSlot; j < startSlot + durationSlots; j++) {
             if (resourceCount[i] > resourceAvailability[j][i]) {
                 return 0;
             }
         }
     }
 
-    for (i = 0; i < MAX_RESOURCES; i++) {
-        for (j = startSlot; j < startSlot + durationSlots; j++) {
+    // set resources
+    for (int i = 0; i < MAX_RESOURCES; i++) {
+        for (int j = startSlot; j < startSlot + durationSlots; j++) {
             resourceAvailability[j][i] -= resourceCount[i];
         }
     }
