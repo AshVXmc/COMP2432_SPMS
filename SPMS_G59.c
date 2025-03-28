@@ -129,6 +129,7 @@ int main() {
 
     // Set parking and resource availability to its initial state.
     memset(parkingAvailability, 1, sizeof(parkingAvailability)); // 1 means available
+    memset(essentials, 0, sizeof(essentials)); // Clear the essentials array (make it empty)
     for (int i = 0; i < TIME_SLOTS; i++) {
         for (int j = 0; j < MAX_RESOURCES; j++) {
             resourceAvailability[i][j] = RESOURCE_STOCK;
