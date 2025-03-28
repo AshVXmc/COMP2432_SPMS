@@ -888,19 +888,32 @@ int allocateResources(int startSlot, int durationSlots, char essentials[MAX_RESO
 }
 
 void releaseResources(int startSlot, int durationSlots, char essentials[MAX_RESOURCES][20]) {
-    int i, j;
-    for (i = 0; i < MAX_RESOURCES; i++) {
-        int resourceType = -1;
-        if (strcmp(essentials[i], "battery") == 0) resourceType = 0;
-        else if (strcmp(essentials[i], "cable") == 0) resourceType = 1;
-        else if (strcmp(essentials[i], "locker") == 0) resourceType = 2;
-        else if (strcmp(essentials[i], "umbrella") == 0) resourceType = 3;
-        else if (strcmp(essentials[i], "inflation") == 0) resourceType = 4;
-        else if (strcmp(essentials[i], "valetpark") == 0) resourceType = 5;
-    
-        if (resourceType != -1) {
-            for (j = startSlot; j < startSlot + durationSlots; j++) {
-                resourceAvailability[j][resourceType]++;
+    int resourceCount[MAX_RESOURCES] = {0};
+    for (int i = 0; i < MAX_RESOURCES; i++) {
+        if (strcmp(essentials[i], "battery") == 0) {
+            resourceCount[0]++;  // battery
+            resourceCount[1]++;  // cable (dependency)
+        } else if (strcmp(essentials[i], "cable") == 0) {
+            resourceCount[1]++;  // cable
+            resourceCount[0]++;  // battery (dependency)
+        } else if (strcmp(essentials[i], "locker") == 0) {
+            resourceCount[2]++;  // locker
+            resourceCount[3]++;  // umbrella (dependency)
+        } else if (strcmp(essentials[i], "umbrella") == 0) {
+            resourceCount[3]++;  // umbrella
+            resourceCount[2]++;  // locker (dependency)
+        } else if (strcmp(essentials[i], "inflation") == 0) {
+            resourceCount[4]++;  // inflation
+            resourceCount[5]++;  // valetpark (dependency)
+        } else if (strcmp(essentials[i], "valetpark") == 0) {
+            resourceCount[5]++;  // valetpark
+            resourceCount[4]++;  // inflation (dependency)
+        }
+    }
+    for (int i = 0; i < MAX_RESOURCES; i++) {
+        if (resourceCount[i] > 0) {
+            for (int j = startSlot; j < startSlot + durationSlots; j++) {
+                resourceAvailability[j][i] += resourceCount[i];
             }
         }
     }
