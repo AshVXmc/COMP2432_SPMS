@@ -1,2 +1,10 @@
+addParking -member_A 2025-05-16 10:00 3.0 battery
+addReservation -member_B 2025-05-14 08:00 3.0 battery cable
+addEvent -member_E 2025-05-16 14:00 2.0 locker umbrella
+bookEssentials -member_C 2025-05-01 13:00 4.0 battery
 addParking -member_E 2025-05-12 10:00 1.5 locker
-bookEssentials -member_C 2025-05-13 11:00 1.0 cable
+bookEssentials -member_A 2025-05-13 11:00 1.0 cable
+addParking -member_A 2025-05-17 10:00 3.0 battery
+addReservation -member_B 2025-05-17 08:00 3.0 battery cable
+addEvent -member_E 2025-05-10 14:00 2.0 locker umbrella
+bookEssentials -member_C 2025-04-01 13:00 4.0 battery
