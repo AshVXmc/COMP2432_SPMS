@@ -125,24 +125,12 @@ int main() {
             for (int i = 0; i < MAX_RESOURCES; i++) {
                 strcpy(essentials[i], "");
             }
-            // Parse command
+            // Sample command: bookEssentials –memberName 2025-05-011 13:00 4.0 battery;
             sscanf(command, "bookEssentials -%s %s %s %f %s", memberName, date, time, &duration, essentials[0]);
             // Set the priority to 4 (Essentials is the lowest)
             addBooking(memberName, date, time, duration, essentials, PRIORITY_ESSENTIAL);
             printf("-> [Pending]\n");
         }
-        else if (strncmp(command, "processBookings -fcfs", 21) == 0) {
-            if (totalBookings > 0) processBookings_FCFS();
-            else printf("No booking(s) have been made.\n");
-        } 
-        else if (strncmp(command, "processBookings -prio", 21) == 0) {
-            if (totalBookings > 0) processBookings_Priority();
-            else printf("No booking(s) have been made.\n");
-        } 
-        else if (strncmp(command, "processBookings -opti", 21) == 0) {
-            if (totalBookings > 0) processBookings_Optimized();
-            else printf("No booking(s) have been made.\n");
-        } 
         else if (strncmp(command, "printBookings -fcfs", 21) == 0) {
             if (totalBookings > 0) {
                 processBookings_FCFS();
@@ -171,7 +159,8 @@ int main() {
             printBookings("PRIORITY");
             // processBookings_Optimized();
             // printBookings("OPTIMIZED");
-        } else if (strncmp(command, "addBatch", 8) == 0) {
+        } 
+        else if (strncmp(command, "addBatch", 8) == 0) {
             char batchFile[20];
             sscanf(command, "addBatch -%s", batchFile);
             FILE *file = fopen(batchFile, "r");
