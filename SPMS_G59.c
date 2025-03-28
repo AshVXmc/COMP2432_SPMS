@@ -65,7 +65,7 @@ char* calculateEndTime(const char* startTime, float duration);
 const char* getBookingType(int priority);
 void generateSummaryReport();
 int isValidDate(char *date);
-int isValidTime(char *time);
+int isValidTime(char *time, float duration);
 int isValidMember(char *memberName);
 int isValidResource(char *resource);
 
@@ -86,12 +86,16 @@ int isValidDate(char *date) {
     return 1;
 }
 
-int isValidTime(char *time) {
+int isValidTime(char *time, float duration) {
     int hour, minute;
     if (sscanf(time, "%2d:%2d", &hour, &minute) != 2) {
         return 0;
     }
     if (hour < 0 || hour > 23 || minute < 0 || minute > 59) {
+        return 0;
+    }
+    int totalMinutes = hour * 60 + minute;
+    if (totalMinutes + (duration * 60) >= 1440) {
         return 0;
     }
     return 1;
@@ -147,8 +151,8 @@ int main() {
                 printf("Invalid date format: %s (Expected: YYYY-MM-DD)\n", date);
                 continue;
             }
-            if (!isValidTime(time)) {
-                printf("Invalid time format: %s (Expected: HH:MM, 00:00-23:59)\n", time);
+            if (!isValidTime(time, duration)) {
+                printf("Invalid time format: %s (Expected: HH:MM, 00:00-23:59) or invalid duration\n", time);
                 continue;
             }
             for (int i = 0; i < MAX_RESOURCES; i++) {
@@ -170,8 +174,8 @@ int main() {
                 printf("Invalid date format: %s (Expected: YYYY-MM-DD)\n", date);
                 continue;
             }
-            if (!isValidTime(time)) {
-                printf("Invalid time format: %s (Expected: HH:MM, 00:00-23:59)\n", time);
+            if (!isValidTime(time, duration)) {
+                printf("Invalid time format: %s (Expected: HH:MM, 00:00-23:59) or invalid duration\n", time);
                 continue;
             }
             for (int i = 0; i < MAX_RESOURCES; i++) {
@@ -193,8 +197,8 @@ int main() {
                 printf("Invalid date format: %s (Expected: YYYY-MM-DD)\n", date);
                 continue;
             }
-            if (!isValidTime(time)) {
-                printf("Invalid time format: %s (Expected: HH:MM, 00:00-23:59)\n", time);
+            if (!isValidTime(time, duration)) {
+                printf("Invalid time format: %s (Expected: HH:MM, 00:00-23:59) or invalid duration\n", time);
                 continue;
             }
             for (int i = 0; i < MAX_RESOURCES; i++) {
@@ -220,8 +224,8 @@ int main() {
                 printf("Invalid date format: %s (Expected: YYYY-MM-DD)\n", date);
                 continue;
             }
-            if (!isValidTime(time)) {
-                printf("Invalid time format: %s (Expected: HH:MM, 00:00-23:59)\n", time);
+            if (!isValidTime(time, duration)) {
+                printf("Invalid time format: %s (Expected: HH:MM, 00:00-23:59) or invalid duration\n", time);
                 continue;
             }
             if (strlen(essentials[0]) > 0 && !isValidResource(essentials[0])) {
@@ -475,8 +479,8 @@ int main() {
                         printf("Error in batch file %s at line %d: Invalid date '%s' (Expected: YYYY-MM-DD)\n", batchFile, lineNum, date);
                         continue;
                     }
-                    if (!isValidTime(time)) {
-                        printf("Error in batch file %s at line %d: Invalid time '%s' (Expected: HH:MM)\n", batchFile, lineNum, time);
+                    if (!isValidTime(time, duration)) {
+                        printf("Error in batch file %s at line %d: Invalid time '%s' (Expected: HH:MM) or invalid duration\n", batchFile, lineNum, time);
                         continue;
                     }
                     for (int i = 0; i < MAX_RESOURCES && strlen(essentials[i]) > 0; i++) {
@@ -499,8 +503,8 @@ int main() {
                         printf("Error in batch file %s at line %d: Invalid date '%s' (Expected: YYYY-MM-DD)\n", batchFile, lineNum, date);
                         continue;
                     }
-                    if (!isValidTime(time)) {
-                        printf("Error in batch file %s at line %d: Invalid time '%s' (Expected: HH:MM)\n", batchFile, lineNum, time);
+                    if (!isValidTime(time, duration)) {
+                        printf("Error in batch file %s at line %d: Invalid time '%s' (Expected: HH:MM) or invalid duration\n", batchFile, lineNum, time);
                         continue;
                     }
                     for (int i = 0; i < MAX_RESOURCES && strlen(essentials[i]) > 0; i++) {
@@ -523,8 +527,8 @@ int main() {
                         printf("Error in batch file %s at line %d: Invalid date '%s' (Expected: YYYY-MM-DD)\n", batchFile, lineNum, date);
                         continue;
                     }
-                    if (!isValidTime(time)) {
-                        printf("Error in batch file %s at line %d: Invalid time '%s' (Expected: HH:MM)\n", batchFile, lineNum, time);
+                    if (!isValidTime(time, duration)) {
+                        printf("Error in batch file %s at line %d: Invalid time '%s' (Expected: HH:MM) or invalid duration\n", batchFile, lineNum, time);
                         continue;
                     }
                     for (int i = 0; i < MAX_RESOURCES && strlen(essentials[i]) > 0; i++) {
@@ -546,8 +550,8 @@ int main() {
                         printf("Error in batch file %s at line %d: Invalid date '%s' (Expected: YYYY-MM-DD)\n", batchFile, lineNum, date);
                         continue;
                     }
-                    if (!isValidTime(time)) {
-                        printf("Error in batch file %s at line %d: Invalid time '%s' (Expected: HH:MM)\n", batchFile, lineNum, time);
+                    if (!isValidTime(time, duration)) {
+                        printf("Error in batch file %s at line %d: Invalid time '%s' (Expected: HH:MM) or invalid duration\n", batchFile, lineNum, time);
                         continue;
                     }
                     if (strlen(essentials[0]) > 0 && !isValidResource(essentials[0])) {
