@@ -49,7 +49,7 @@ const char *resourceNames[MAX_RESOURCES] = {
 const char *members[5] = {"member_A", "member_B", "member_C", "member_D", "member_E"};
 
 // Prototypes
-void addBooking(char *memberName, char *date, char *time, float duration, char essentials[MAX_RESOURCES][20], int priority);
+void addBooking(char *memberName, char *date, char *time, float duration, char essentials[MAX_RESOURCES][20], int priority, int isEssentialBooking);
 void processBookings_FCFS();
 void processBookings_Priority();
 void processBookings_Optimized();
@@ -161,7 +161,7 @@ int main() {
                     goto skip_booking;
                 }
             }
-            addBooking(memberName, date, time, duration, essentials, PRIORITY_PARKING);
+            addBooking(memberName, date, time, duration, essentials, PRIORITY_PARKING, 0);
             printf("-> [Pending]\n");
         }
         else if (strncmp(command, "addReservation", 14) == 0) {
@@ -184,7 +184,7 @@ int main() {
                     goto skip_booking;
                 }
             }
-            addBooking(memberName, date, time, duration, essentials, PRIORITY_RESERVATION); 
+            addBooking(memberName, date, time, duration, essentials, PRIORITY_RESERVATION, 0); 
             printf("-> [Pending]\n");
         } 
         else if (strncmp(command, "addEvent", 8) == 0) {
@@ -207,7 +207,7 @@ int main() {
                     goto skip_booking;
                 }
             }
-            addBooking(memberName, date, time, duration, essentials, PRIORITY_EVENT); 
+            addBooking(memberName, date, time, duration, essentials, PRIORITY_EVENT, 0); 
             printf("-> [Pending]\n");
         }
         else if (strncmp(command, "bookEssentials", 14) == 0) {
@@ -232,7 +232,7 @@ int main() {
                 printf("Invalid resource: %s\n", essentials[0]);
                 continue;
             }
-            addBooking(memberName, date, time, duration, essentials, PRIORITY_ESSENTIAL);
+            addBooking(memberName, date, time, duration, essentials, PRIORITY_ESSENTIAL, 1);
             printf("-> [Pending]\n");
         }
         else if (strncmp(command, "printBookings -fcfs", 21) == 0) {
@@ -489,7 +489,7 @@ int main() {
                             continue;
                         }
                     }
-                    addBooking(memberName, date, time, duration, essentials, PRIORITY_PARKING);
+                    addBooking(memberName, date, time, duration, essentials, PRIORITY_PARKING, 0);
                     printf("-> [Pending] %s\n", line);
                 } else if (strncmp(line, "addReservation", 14) == 0) {
                     sscanf(line, "addReservation -%s %s %s %f %s %s %s %s %s %s %s",
@@ -513,7 +513,7 @@ int main() {
                             continue;
                         }
                     }
-                    addBooking(memberName, date, time, duration, essentials, PRIORITY_RESERVATION);
+                    addBooking(memberName, date, time, duration, essentials, PRIORITY_RESERVATION, 0);
                     printf("-> [Pending] %s\n", line);
                 } else if (strncmp(line, "addEvent", 8) == 0) {
                     sscanf(line, "addEvent -%s %s %s %f %s %s %s %s %s %s %s",
@@ -537,7 +537,7 @@ int main() {
                             continue;
                         }
                     }
-                    addBooking(memberName, date, time, duration, essentials, PRIORITY_EVENT);
+                    addBooking(memberName, date, time, duration, essentials, PRIORITY_EVENT, 0);
                     printf("-> [Pending] %s\n", line);
                 } else if (strncmp(line, "bookEssentials", 14) == 0) {
                     sscanf(line, "bookEssentials -%s %s %s %f %s",
@@ -558,7 +558,7 @@ int main() {
                         printf("Error in batch file %s at line %d: Invalid resource '%s'\n", batchFile, lineNum, essentials[0]);
                         continue;
                     }
-                    addBooking(memberName, date, time, duration, essentials, PRIORITY_ESSENTIAL);
+                    addBooking(memberName, date, time, duration, essentials, PRIORITY_ESSENTIAL, 0);
                     printf("-> [Pending] %s\n", line);
                 } else {
                     printf("Error in batch file %s at line %d: Unrecognized command '%s'\n", batchFile, lineNum, line);
@@ -579,7 +579,7 @@ int main() {
     return 0;
 }
 
-void addBooking(char *memberName, char *date, char *time, float duration, char essentials[MAX_RESOURCES][20], int priority) {
+void addBooking(char *memberName, char *date, char *time, float duration, char essentials[MAX_RESOURCES][20], int priority, int isEssentialBooking) {
     if (totalBookings >= MAX_BOOKINGS) {
         printf("Booking limit reached (Maximum: %i). Cannot create more bookings.\n", MAX_BOOKINGS);
     } 
@@ -597,68 +597,69 @@ void addBooking(char *memberName, char *date, char *time, float duration, char e
         for (i = 0; i < MAX_RESOURCES; i++) {
             strcpy(b->essentials[i], essentials[i]);
         }
-
-        if (contains(b->essentials, "battery") >= 0 && contains(b->essentials, "cable") == -1) {
-            for (i = 0; i < MAX_RESOURCES; i++) {
-                if (strcmp(essentials[i], "locker") == 0 || strcmp(essentials[i], "battery") == 0 || strcmp(essentials[i], "cable") == 0 || strcmp(essentials[i], "umbrella") == 0 || strcmp(essentials[i], "inflation") == 0 || strcmp(essentials[i], "valetpark") == 0) {
-                    continue;
-                } else {
-                    strcpy(essentials[i], "cable");
-                    break;
+        
+        if (!isEssentialBooking) {
+            if (contains(b->essentials, "battery") >= 0 && contains(b->essentials, "cable") == -1) {
+                for (i = 0; i < MAX_RESOURCES; i++) {
+                    if (strcmp(essentials[i], "locker") == 0 || strcmp(essentials[i], "battery") == 0 || strcmp(essentials[i], "cable") == 0 || strcmp(essentials[i], "umbrella") == 0 || strcmp(essentials[i], "inflation") == 0 || strcmp(essentials[i], "valetpark") == 0) {
+                        continue;
+                    } else {
+                        strcpy(essentials[i], "cable");
+                        break;
+                    }
+                }
+            }
+            if (contains(b->essentials, "cable") >= 0 && contains(b->essentials, "battery") == -1) {
+                for (i = 0; i < MAX_RESOURCES; i++) {
+                    if (strcmp(essentials[i], "locker") == 0 || strcmp(essentials[i], "battery") == 0 || strcmp(essentials[i], "cable") == 0 || strcmp(essentials[i], "umbrella") == 0 || strcmp(essentials[i], "inflation") == 0 || strcmp(essentials[i], "valetpark") == 0) {
+                        continue;
+                    } else {
+                        strcpy(essentials[i], "battery");
+                        break;
+                    }
+                }  
+            }
+            if (contains(b->essentials, "locker") >= 0 && contains(b->essentials, "umbrella") == -1) {
+                for (i = 0; i < MAX_RESOURCES; i++) {
+                    if (strcmp(essentials[i], "locker") == 0 || strcmp(essentials[i], "battery") == 0 || strcmp(essentials[i], "cable") == 0 || strcmp(essentials[i], "umbrella") == 0 || strcmp(essentials[i], "inflation") == 0 || strcmp(essentials[i], "valetpark") == 0) {
+                        continue;
+                    } else {
+                        strcpy(essentials[i], "umbrella");
+                        break;
+                    }
+                }
+            }
+            if (contains(b->essentials, "umbrella") >= 0 && contains(b->essentials, "locker") == -1) {
+                for (i = 0; i < MAX_RESOURCES; i++) {
+                    if (strcmp(essentials[i], "locker") == 0 || strcmp(essentials[i], "battery") == 0 || strcmp(essentials[i], "cable") == 0 || strcmp(essentials[i], "umbrella") == 0 || strcmp(essentials[i], "inflation") == 0 || strcmp(essentials[i], "valetpark") == 0) {
+                        continue;
+                    } else {
+                        strcpy(essentials[i], "locker");
+                        break;
+                    }
+                }
+            } 
+            if (contains(b->essentials, "inflation") >= 0 && contains(b->essentials, "valetpark") == -1) {
+                for (i = 0; i < MAX_RESOURCES; i++) {
+                    if (strcmp(essentials[i], "locker") == 0 || strcmp(essentials[i], "battery") == 0 || strcmp(essentials[i], "cable") == 0 || strcmp(essentials[i], "umbrella") == 0 || strcmp(essentials[i], "inflation") == 0 || strcmp(essentials[i], "valetpark") == 0) {
+                        continue;
+                    } else {
+                        strcpy(essentials[i], "valetpark");
+                        break;
+                    }
+                }
+            }
+            if (contains(b->essentials, "valetpark") >= 0 && contains(b->essentials, "inflation") == -1) {
+                for (i = 0; i < MAX_RESOURCES; i++) {
+                    if (strcmp(essentials[i], "locker") == 0 || strcmp(essentials[i], "battery") == 0 || strcmp(essentials[i], "cable") == 0 || strcmp(essentials[i], "umbrella") == 0 || strcmp(essentials[i], "inflation") == 0 || strcmp(essentials[i], "valetpark") == 0) {
+                        continue;
+                    } else {
+                        strcpy(essentials[i], "inflation");
+                        break;
+                    }
                 }
             }
         }
-        if (contains(b->essentials, "cable") >= 0 && contains(b->essentials, "battery") == -1) {
-            for (i = 0; i < MAX_RESOURCES; i++) {
-                if (strcmp(essentials[i], "locker") == 0 || strcmp(essentials[i], "battery") == 0 || strcmp(essentials[i], "cable") == 0 || strcmp(essentials[i], "umbrella") == 0 || strcmp(essentials[i], "inflation") == 0 || strcmp(essentials[i], "valetpark") == 0) {
-                    continue;
-                } else {
-                    strcpy(essentials[i], "battery");
-                    break;
-                }
-            }  
-        }
-        if (contains(b->essentials, "locker") >= 0 && contains(b->essentials, "umbrella") == -1) {
-            for (i = 0; i < MAX_RESOURCES; i++) {
-                if (strcmp(essentials[i], "locker") == 0 || strcmp(essentials[i], "battery") == 0 || strcmp(essentials[i], "cable") == 0 || strcmp(essentials[i], "umbrella") == 0 || strcmp(essentials[i], "inflation") == 0 || strcmp(essentials[i], "valetpark") == 0) {
-                    continue;
-                } else {
-                    strcpy(essentials[i], "umbrella");
-                    break;
-                }
-            }
-        }
-        if (contains(b->essentials, "umbrella") >= 0 && contains(b->essentials, "locker") == -1) {
-            for (i = 0; i < MAX_RESOURCES; i++) {
-                if (strcmp(essentials[i], "locker") == 0 || strcmp(essentials[i], "battery") == 0 || strcmp(essentials[i], "cable") == 0 || strcmp(essentials[i], "umbrella") == 0 || strcmp(essentials[i], "inflation") == 0 || strcmp(essentials[i], "valetpark") == 0) {
-                    continue;
-                } else {
-                    strcpy(essentials[i], "locker");
-                    break;
-                }
-            }
-        } 
-        if (contains(b->essentials, "inflation") >= 0 && contains(b->essentials, "valetpark") == -1) {
-            for (i = 0; i < MAX_RESOURCES; i++) {
-                if (strcmp(essentials[i], "locker") == 0 || strcmp(essentials[i], "battery") == 0 || strcmp(essentials[i], "cable") == 0 || strcmp(essentials[i], "umbrella") == 0 || strcmp(essentials[i], "inflation") == 0 || strcmp(essentials[i], "valetpark") == 0) {
-                    continue;
-                } else {
-                    strcpy(essentials[i], "valetpark");
-                    break;
-                }
-            }
-        }
-        if (contains(b->essentials, "valetpark") >= 0 && contains(b->essentials, "inflation") == -1) {
-            for (i = 0; i < MAX_RESOURCES; i++) {
-                if (strcmp(essentials[i], "locker") == 0 || strcmp(essentials[i], "battery") == 0 || strcmp(essentials[i], "cable") == 0 || strcmp(essentials[i], "umbrella") == 0 || strcmp(essentials[i], "inflation") == 0 || strcmp(essentials[i], "valetpark") == 0) {
-                    continue;
-                } else {
-                    strcpy(essentials[i], "inflation");
-                    break;
-                }
-            }
-        }
-
         totalBookings++;
         printf("Booking added: %s on %s at %s for %.2f hours. ", memberName, date, time, duration);
         printf("(");
@@ -679,64 +680,76 @@ void processBookings_FCFS() {
         int durationSlots = (int)b->duration;
         int slotFound = -1;
 
-        // check if there is a slot available
-        for (int j = 0; j < PARKING_SLOTS; j++) {
-            int available = 1;
-            for (int k = startSlot; k < startSlot + durationSlots; k++) {
-                if (parkingAvailability[k][j] == 0) {
-                    available = 0;
+        
+        if (b->priority != PRIORITY_ESSENTIAL) {
+            for (int j = 0; j < PARKING_SLOTS; j++) {
+                int available = 1;
+                for (int k = startSlot; k < startSlot + durationSlots; k++) {
+                    if (parkingAvailability[k][j] == 0) {
+                        available = 0;
+                        break;
+                    }
+                }
+                if (available) {
+                    slotFound = j;
                     break;
                 }
-            }
-            if (available) {
-                slotFound = j;
-                break;
             }
         }
 
         int resourcesAllocated = allocateResources(startSlot, durationSlots, b->essentials);
-
-        if (slotFound != -1 && resourcesAllocated) {
-            for (int k = startSlot; k < startSlot + durationSlots; k++) {
-                parkingAvailability[k][slotFound] = 0;
+        
+        if (b->priority == PRIORITY_ESSENTIAL) {
+            if (resourcesAllocated) {
+                b->accepted = 1; 
+            } else {
+                b->accepted = 0;  
+                snprintf(b->reasonForRejection, sizeof(b->reasonForRejection), "One or more essentials unavailable.");
+                suggestAlternativeSlots(durationSlots, b->memberName, b->date, b->time);
             }
-            b->parkingSlot = slotFound;
-            b->accepted = 1;
-        } else if (slotFound == -1) {
-            for (int j = 0; j < totalBookings; j++) {
-                Booking *other = &bookings[j];
-                if (other != b && other->accepted && other->priority > b->priority &&
-                    strcmp(other->date, b->date) == 0 && timeToSlot(other->time) == startSlot) {
-                    int otherDuration = (int)other->duration;
-                    releaseResources(startSlot, otherDuration, other->essentials);
-                    for (int k = startSlot; k < startSlot + otherDuration; k++) {
-                        parkingAvailability[k][other->parkingSlot] = 1;
-                    }
-                    other->accepted = 0;
-                    snprintf(other->reasonForRejection, sizeof(other->reasonForRejection),
-                             "Displaced by higher priority booking.");
-                    slotFound = other->parkingSlot;
-                    break;
-                }
-            }
-            if (slotFound != -1 && (resourcesAllocated || (resourcesAllocated = allocateResources(startSlot, durationSlots, b->essentials)))) {
+        } else {
+            if (slotFound != -1 && resourcesAllocated) {
                 for (int k = startSlot; k < startSlot + durationSlots; k++) {
                     parkingAvailability[k][slotFound] = 0;
                 }
                 b->parkingSlot = slotFound;
                 b->accepted = 1;
+            } else if (slotFound == -1) {
+                for (int j = 0; j < totalBookings; j++) {
+                    Booking *other = &bookings[j];
+                    if (other != b && other->accepted && other->priority > b->priority &&
+                        strcmp(other->date, b->date) == 0 && timeToSlot(other->time) == startSlot) {
+                        int otherDuration = (int)other->duration;
+                        releaseResources(startSlot, otherDuration, other->essentials);
+                        for (int k = startSlot; k < startSlot + otherDuration; k++) {
+                            parkingAvailability[k][other->parkingSlot] = 1;
+                        }
+                        other->accepted = 0;
+                        snprintf(other->reasonForRejection, sizeof(other->reasonForRejection),
+                                 "Displaced by higher priority booking.");
+                        slotFound = other->parkingSlot;
+                        break;
+                    }
+                }
+                if (slotFound != -1 && (resourcesAllocated || (resourcesAllocated = allocateResources(startSlot, durationSlots, b->essentials)))) {
+                    for (int k = startSlot; k < startSlot + durationSlots; k++) {
+                        parkingAvailability[k][slotFound] = 0;
+                    }
+                    b->parkingSlot = slotFound;
+                    b->accepted = 1;
+                } else {
+                    releaseResources(startSlot, durationSlots, b->essentials);
+                    b->accepted = 0;
+                    snprintf(b->reasonForRejection, sizeof(b->reasonForRejection),
+                             resourcesAllocated ? "No available parking slots." : "One or more essentials unavailable.");
+                    suggestAlternativeSlots(durationSlots, b->memberName, b->date, b->time);
+                }
             } else {
                 releaseResources(startSlot, durationSlots, b->essentials);
                 b->accepted = 0;
-                snprintf(b->reasonForRejection, sizeof(b->reasonForRejection),
-                         resourcesAllocated ? "No available parking slots." : "One or more essentials unavailable.");
+                snprintf(b->reasonForRejection, sizeof(b->reasonForRejection), "One or more essentials unavailable.");
                 suggestAlternativeSlots(durationSlots, b->memberName, b->date, b->time);
             }
-        } else {
-            releaseResources(startSlot, durationSlots, b->essentials);
-            b->accepted = 0;
-            snprintf(b->reasonForRejection, sizeof(b->reasonForRejection), "One or more essentials unavailable.");
-            suggestAlternativeSlots(durationSlots, b->memberName, b->date, b->time);
         }
     }
 }
@@ -750,29 +763,40 @@ void processBookings_Priority() {
         int slotFound = -1;
 
         // check if booked essentials are available
-        for (int j = 0; j < PARKING_SLOTS; j++) {
-            int available = 1;
-            for (int k = startSlot; k < startSlot + durationSlots; k++) {
-                if (parkingAvailability[k][j] == 0) {
-                    available = 0;
+        if (b->priority != PRIORITY_ESSENTIAL) {
+            for (int j = 0; j < PARKING_SLOTS; j++) {
+                int available = 1;
+                for (int k = startSlot; k < startSlot + durationSlots; k++) {
+                    if (parkingAvailability[k][j] == 0) {
+                        available = 0;
+                        break;
+                    }
+                }
+                if (available) {
+                    slotFound = j;
                     break;
                 }
-            }
-            if (available) {
-                slotFound = j;
-                break;
             }
         }
 
         int resourcesAllocated = allocateResources(startSlot, durationSlots, b->essentials);
-
-        if (slotFound != -1 && resourcesAllocated) {
+        
+        if (b->priority == PRIORITY_ESSENTIAL) {
+            if (resourcesAllocated) {
+                b->accepted = 1;  
+            } else {
+                b->accepted = 0; 
+                snprintf(b->reasonForRejection, sizeof(b->reasonForRejection), "One or more essentials unavailable.");
+                suggestAlternativeSlots(durationSlots, b->memberName, b->date, b->time);
+            }
+        } else {
+            if (slotFound != -1 && resourcesAllocated) {
             for (int k = startSlot; k < startSlot + durationSlots; k++) {
                 parkingAvailability[k][slotFound] = 0;
             }
             b->parkingSlot = slotFound;
             b->accepted = 1;
-        } else if (slotFound == -1) {
+            } else if (slotFound == -1) {
             // if no slot found, check if there is any slot available
             for (int j = 0; j < totalBookings; j++) {
                 Booking *other = &bookings[j];
@@ -803,12 +827,14 @@ void processBookings_Priority() {
                          resourcesAllocated ? "No available parking slots." : "One or more essentials unavailable.");
                 suggestAlternativeSlots(durationSlots, b->memberName, b->date, b->time);
             }
-        } else {
+            } else {
             releaseResources(startSlot, durationSlots, b->essentials);
             b->accepted = 0;
             snprintf(b->reasonForRejection, sizeof(b->reasonForRejection), "One or more essentials unavailable.");
             suggestAlternativeSlots(durationSlots, b->memberName, b->date, b->time);
         }
+        }
+        
     }
 }
 
