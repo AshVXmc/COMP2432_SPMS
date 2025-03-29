@@ -1196,7 +1196,7 @@ int contains(char essentials[MAX_RESOURCES][20], const char *item) {
 
 void suggestAlternativeSlots(int durationSlots, char *memberName, char *date, char *time) {
     printf("Suggested alternative booking slots for %s on %s at %s:\n", memberName, date, time);
-    for (int newStartSlot = 0; newStartSlot <= TIME_SLOTS - durationSlots; newStartSlot++) {
+    for (int newStartSlot = 0; newStartSlot <= TIME_SLOTS - durationSlots - 1; newStartSlot++) {
         int available = 1;
         for (int j = 0; j < PARKING_SLOTS; j++) {
             int slotAvailable = 1;
