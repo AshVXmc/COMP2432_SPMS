@@ -24,6 +24,7 @@ typedef struct {
     char reasonForRejection[256]; // why the booking is rejected (if applicable)
 } Booking;
 
+Booking initialBookings[MAX_BOOKINGS]; // Initial bookings that are read from the report
 Booking bookings[MAX_BOOKINGS];
 int totalBookings = 0;
 int parkingAvailability[TIME_SLOTS][PARKING_SLOTS] = {0}; // 0 means available
@@ -662,6 +663,7 @@ void addBooking(char *memberName, char *date, char *time, float duration, char e
             }
         }
         totalBookings++;
+        initialBookings[totalBookings - 1] = *b;
         printf("Booking added: %s on %s at %s for %.2f hours. ", memberName, date, time, duration);
         printf("(");
         for (i = 0; i < MAX_RESOURCES; i++) {
@@ -1094,14 +1096,31 @@ void generateSummaryReport() {
     Booking originalBookings[MAX_BOOKINGS];
     int originalParking[TIME_SLOTS][PARKING_SLOTS];
     int originalResources[TIME_SLOTS][MAX_RESOURCES];
-    memcpy(originalBookings, bookings, sizeof(bookings));
+    
+    // Save the original state of bookings
+    memcpy(originalBookings, initialBookings, sizeof(bookings));
     memcpy(originalParking, parkingAvailability, sizeof(parkingAvailability));
     memcpy(originalResources, resourceAvailability, sizeof(resourceAvailability));
 
     int fcfsAccepted = 0, prioAccepted = 0, optiAccepted = 0;
-    float resourceUsage[MAX_RESOURCES] = {0};
+    float fcfsResourceUsage[MAX_RESOURCES] = {0};
+    float prioResourceUsage[MAX_RESOURCES] = {0};
+    float optiResourceUsage[MAX_RESOURCES] = {0};
 
-    // FCFS
+    // Reset availability to initial state (all parking slots available, resources at full stock)
+    int initialParking[TIME_SLOTS][PARKING_SLOTS];
+    int initialResources[TIME_SLOTS][MAX_RESOURCES];
+    memset(initialParking, 1, sizeof(initialParking)); // 1 means available
+    for (int i = 0; i < TIME_SLOTS; i++) {
+        for (int j = 0; j < MAX_RESOURCES; j++) {
+            initialResources[i][j] = RESOURCE_STOCK;
+        }
+    }
+
+    // FCFS Evaluation
+    memcpy(bookings, originalBookings, sizeof(bookings));
+    memcpy(parkingAvailability, initialParking, sizeof(initialParking));
+    memcpy(resourceAvailability, initialResources, sizeof(initialResources));
     processBookings_FCFS();
     for (int i = 0; i < totalBookings; i++) {
         if (bookings[i].accepted) {
@@ -1109,38 +1128,58 @@ void generateSummaryReport() {
             int slots = (int)bookings[i].duration;
             for (int j = 0; j < MAX_RESOURCES; j++) {
                 if (contains(bookings[i].essentials, resourceNames[j]) != -1) {
-                    resourceUsage[j] += slots;
+                    fcfsResourceUsage[j] += slots;
                 }
             }
         }
     }
 
+    // Priority Evaluation
     memcpy(bookings, originalBookings, sizeof(bookings));
-    memcpy(parkingAvailability, originalParking, sizeof(parkingAvailability));
-    memcpy(resourceAvailability, originalResources, sizeof(resourceAvailability));
-
-    // Priority
+    memcpy(parkingAvailability, initialParking, sizeof(initialParking));
+    memcpy(resourceAvailability, initialResources, sizeof(initialResources));
     processBookings_Priority();
     for (int i = 0; i < totalBookings; i++) {
-        if (bookings[i].accepted) prioAccepted++;
+        if (bookings[i].accepted) {
+            prioAccepted++;
+            int slots = (int)bookings[i].duration;
+            for (int j = 0; j < MAX_RESOURCES; j++) {
+                if (contains(bookings[i].essentials, resourceNames[j]) != -1) {
+                    prioResourceUsage[j] += slots;
+                }
+            }
+        }
     }
 
+    // Optimized Evaluation
     memcpy(bookings, originalBookings, sizeof(bookings));
-    memcpy(parkingAvailability, originalParking, sizeof(parkingAvailability));
-    memcpy(resourceAvailability, originalResources, sizeof(resourceAvailability));
-
-    // Optimized
+    memcpy(parkingAvailability, initialParking, sizeof(initialParking));
+    memcpy(resourceAvailability, initialResources, sizeof(initialResources));
     processBookings_Optimized();
     for (int i = 0; i < totalBookings; i++) {
-        if (bookings[i].accepted) optiAccepted++;
+        if (bookings[i].accepted) {
+            optiAccepted++;
+            int slots = (int)bookings[i].duration;
+            for (int j = 0; j < MAX_RESOURCES; j++) {
+                if (contains(bookings[i].essentials, resourceNames[j]) != -1) {
+                    optiResourceUsage[j] += slots;
+                }
+            }
+        }
     }
 
-    float totalSlots = TIME_SLOTS * PARKING_SLOTS * 7;
-    float utilization[MAX_RESOURCES];
+    // Calculate utilization for each algorithm
+    float totalSlots = TIME_SLOTS * PARKING_SLOTS * 7; // Assuming 7 days for simplicity
+    float fcfsUtilization[MAX_RESOURCES];
+    float prioUtilization[MAX_RESOURCES];
+    float optiUtilization[MAX_RESOURCES];
     for (int i = 0; i < MAX_RESOURCES; i++) {
-        utilization[i] = (resourceUsage[i] / (totalSlots * RESOURCE_STOCK)) * 100;
+        fcfsUtilization[i] = (fcfsResourceUsage[i] / (totalSlots * RESOURCE_STOCK)) * 100;
+        prioUtilization[i] = (prioResourceUsage[i] / (totalSlots * RESOURCE_STOCK)) * 100;
+        optiUtilization[i] = (optiResourceUsage[i] / (totalSlots * RESOURCE_STOCK)) * 100;
     }
 
+    // Print the report
     printf("\n*** Parking Booking Manager - Summary Report ***\n");
     printf("Performance:\n");
     printf("For FCFS:\n");
@@ -1149,7 +1188,7 @@ void generateSummaryReport() {
     printf("    Number of Bookings Rejected: %d (%.1f%%)\n", totalBookings - fcfsAccepted, (float)(totalBookings - fcfsAccepted) / totalBookings * 100);
     printf("    Utilization of Time slot:\n");
     for (int i = 0; i < MAX_RESOURCES; i++) {
-        printf("    %s - %.1f%%\n", resourceNames[i], utilization[i]);
+        printf("    %s - %.1f%%\n", resourceNames[i], fcfsUtilization[i]);
     }
     printf("    Invalid request(s) made: 0\n");
 
@@ -1159,7 +1198,7 @@ void generateSummaryReport() {
     printf("    Number of Bookings Rejected: %d (%.1f%%)\n", totalBookings - prioAccepted, (float)(totalBookings - prioAccepted) / totalBookings * 100);
     printf("    Utilization of Time slot:\n");
     for (int i = 0; i < MAX_RESOURCES; i++) {
-        printf("    %s - %.1f%%\n", resourceNames[i], utilization[i]);
+        printf("    %s - %.1f%%\n", resourceNames[i], prioUtilization[i]);
     }
     printf("    Invalid request(s) made: 0\n");
 
@@ -1169,10 +1208,11 @@ void generateSummaryReport() {
     printf("    Number of Bookings Rejected: %d (%.1f%%)\n", totalBookings - optiAccepted, (float)(totalBookings - optiAccepted) / totalBookings * 100);
     printf("    Utilization of Time slot:\n");
     for (int i = 0; i < MAX_RESOURCES; i++) {
-        printf("    %s - %.1f%%\n", resourceNames[i], utilization[i]);
+        printf("    %s - %.1f%%\n", resourceNames[i], optiUtilization[i]);
     }
     printf("    Invalid request(s) made: 0\n");
 
+    // Restore original state
     memcpy(bookings, originalBookings, sizeof(bookings));
     memcpy(parkingAvailability, originalParking, sizeof(parkingAvailability));
     memcpy(resourceAvailability, originalResources, sizeof(resourceAvailability));
