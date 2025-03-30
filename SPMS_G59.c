@@ -848,32 +848,42 @@ void processBookings_Optimized() {
             int durationSlots = (int)b->duration;
             for (int newStartSlot = 0; newStartSlot < TIME_SLOTS - durationSlots; newStartSlot++) {
                 int slotFound = -1;
-                for (int j = 0; j < PARKING_SLOTS; j++) {
-                    int available = 1;
-                    for (int k = newStartSlot; k < newStartSlot + durationSlots; k++) {
-                        if (parkingAvailability[k][j] == 0) {
-                            available = 0;
+
+                // Only check for parking slots if the booking is not PRIORITY_ESSENTIAL
+                if (b->priority != PRIORITY_ESSENTIAL) {
+                    for (int j = 0; j < PARKING_SLOTS; j++) {
+                        int available = 1;
+                        for (int k = newStartSlot; k < newStartSlot + durationSlots; k++) {
+                            if (parkingAvailability[k][j] == 0) {
+                                available = 0;
+                                break;
+                            }
+                        }
+                        if (available) {
+                            slotFound = j;
                             break;
                         }
                     }
-                    if (available) {
-                        slotFound = j;
-                        break;
-                    }
+                } else {
+                    // For essential bookings, parking slot is not required
+                    slotFound = 0;  // Dummy value since parking isn't needed
                 }
 
                 int resourcesAllocated = allocateResources(newStartSlot, durationSlots, b->essentials);
 
-                if (slotFound != -1 && resourcesAllocated) {
-                    for (int k = newStartSlot; k < newStartSlot + durationSlots; k++) {
-                        parkingAvailability[k][slotFound] = 0;
+                // Accept booking if resources are allocated and parking is satisfied (or not required)
+                if ((slotFound != -1 || b->priority == PRIORITY_ESSENTIAL) && resourcesAllocated) {
+                    if (b->priority != PRIORITY_ESSENTIAL) {
+                        for (int k = newStartSlot; k < newStartSlot + durationSlots; k++) {
+                            parkingAvailability[k][slotFound] = 0;
+                        }
+                        b->parkingSlot = slotFound;
                     }
-                    b->parkingSlot = slotFound;
                     b->accepted = 1;
-                    sprintf(b->time, "%02d:00", newStartSlot);  // update booking time
+                    sprintf(b->time, "%02d:00", newStartSlot);  // Update booking time
                     break;
-                } else if (slotFound == -1) {
-                    // No slot found, send notification to customer
+                } else if (b->priority != PRIORITY_ESSENTIAL && slotFound == -1) {
+                    // Displacement logic for non-essential bookings
                     for (int j = 0; j < totalBookings; j++) {
                         Booking *other = &bookings[j];
                         if (other != b && other->accepted && other->priority > b->priority &&
@@ -896,11 +906,9 @@ void processBookings_Optimized() {
                         }
                         b->parkingSlot = slotFound;
                         b->accepted = 1;
-                        sprintf(b->time, "%02d:00", newStartSlot);  // update the time field
+                        sprintf(b->time, "%02d:00", newStartSlot);  // Update the time field
                         break;
                     }
-                } else {
-                    releaseResources(newStartSlot, durationSlots, b->essentials);
                 }
             }
         }
