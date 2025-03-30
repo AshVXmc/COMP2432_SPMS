@@ -863,144 +863,97 @@ void processBookings_Optimized() {
     memcpy(tempResources, resourceAvailability, sizeof(resourceAvailability));
 
     // Step 2: Process rejected bookings with optimization
-    for (int i = 0; i < totalBookings; i++) {
-        Booking *b = &bookings[i];
-        if (b->accepted == 0) {  // Handle rejected bookings
-            int durationMinutes = durationToMinutes(b->duration);
-            int foundSlot = 0;
+    for (int m = 0; m < 5; m++) { // Iterate over each member
+        const char *member = members[m]; // Changed to const char *
+        int rejectedBookings[MAX_BOOKINGS];
+        int rejectedCount = 0;
 
-            // New Step: Check if an existing accepted slot for the same member can accommodate this booking
-            for (int j = 0; j < totalBookings; j++) {
-                Booking *existing = &bookings[j];
-                if (existing->accepted && strcmp(existing->memberName, b->memberName) == 0 &&
-                    strcmp(existing->date, b->date) == 0 && existing->priority == b->priority) {
-                    int existingStart = timeToMinutes(existing->time);
-                    int existingDuration = durationToMinutes(existing->duration);
-                    if (existingStart + existingDuration >= durationMinutes) { // Check if duration fits
-                        // Temporarily restore state to test resource availability
-                        memcpy(parkingAvailability, tempParking, sizeof(parkingAvailability));
-                        memcpy(resourceAvailability, tempResources, sizeof(resourceAvailability));
+        // Collect all rejected bookings for this member
+        for (int i = 0; i < totalBookings; i++) {
+            Booking *b = &bookings[i];
+            if (strcmp(b->memberName, member) == 0 && !b->accepted) {
+                rejectedBookings[rejectedCount++] = i;
+            }
+        }
 
-                        // Re-apply all accepted bookings except the current one being tested
-                        for (int k = 0; k < totalBookings; k++) {
-                            if (bookings[k].accepted && k != i) {
-                                int start = timeToMinutes(bookings[k].time);
-                                int dur = durationToMinutes(bookings[k].duration);
-                                allocateResources(start, dur, bookings[k].essentials);
-                                if (bookings[k].priority != PRIORITY_ESSENTIAL) {
-                                    int sSlot = start / 60;
-                                    int eSlot = (start + dur) / 60 + ((start + dur) % 60 > 0 ? 1 : 0);
-                                    for (int m = sSlot; m < eSlot; m++) {
-                                        parkingAvailability[m][bookings[k].parkingSlot] = 0;
-                                    }
-                                }
+        if (rejectedCount > 0) {
+            int durationMinutes = durationToMinutes(bookings[rejectedBookings[0]].duration);
+            int processed = 0;
+
+            // Try to fit as many bookings as possible into each time slot
+            for (int startMinutes = 0; startMinutes <= 1440 - durationMinutes && processed < rejectedCount; startMinutes += 60) {
+                // Restore state
+                memcpy(parkingAvailability, tempParking, sizeof(parkingAvailability));
+                memcpy(resourceAvailability, tempResources, sizeof(resourceAvailability));
+
+                // Re-apply all accepted bookings
+                for (int j = 0; j < totalBookings; j++) {
+                    if (bookings[j].accepted) {
+                        int start = timeToMinutes(bookings[j].time);
+                        int dur = durationToMinutes(bookings[j].duration);
+                        allocateResources(start, dur, bookings[j].essentials);
+                        if (bookings[j].priority != PRIORITY_ESSENTIAL) {
+                            int sSlot = start / 60;
+                            int eSlot = (start + dur) / 60 + ((start + dur) % 60 > 0 ? 1 : 0);
+                            for (int k = sSlot; k < eSlot; k++) {
+                                parkingAvailability[k][bookings[j].parkingSlot] = 0;
                             }
                         }
+                    }
+                }
 
-                        // Test if resources are available for this booking at the existing slot
-                        int resourcesAvailable = allocateResources(existingStart, durationMinutes, b->essentials);
-                        if (resourcesAvailable && (b->priority == PRIORITY_ESSENTIAL || existing->parkingSlot != -1)) {
-                            b->accepted = 1;
-                            strcpy(b->time, existing->time); // Use the same start time
-                            b->parkingSlot = existing->parkingSlot; // Reuse parking slot if applicable
-                            snprintf(b->reasonForRejection, sizeof(b->reasonForRejection), "Fitted into existing slot for %s", b->memberName);
-                            foundSlot = 1;
-                            memcpy(tempParking, parkingAvailability, sizeof(parkingAvailability));
-                            memcpy(tempResources, resourceAvailability, sizeof(resourceAvailability));
-                            break;
+                // Count how many bookings can fit in this slot
+                int bookingsToFit = 0;
+                int resourceCount[MAX_RESOURCES] = {0};
+                for (int r = 0; r < rejectedCount && processed + bookingsToFit < rejectedCount; r++) {
+                    Booking *b = &bookings[rejectedBookings[r + processed]];
+                    for (int k = 0; k < MAX_RESOURCES; k++) {
+                        if (strlen(b->essentials[k]) > 0) {
+                            int idx = getResourceIndex(b->essentials[k]);
+                            if (idx != -1) resourceCount[idx]++;
                         }
+                    }
+                    int startSlot = startMinutes / 60;
+                    int endSlot = (startMinutes + durationMinutes) / 60 + ((startMinutes + durationMinutes) % 60 > 0 ? 1 : 0);
+                    int canFit = 1;
+                    for (int i = 0; i < MAX_RESOURCES; i++) {
+                        if (resourceCount[i] > 0) {
+                            for (int slot = startSlot; slot < endSlot; slot++) {
+                                if (resourceAvailability[slot][i] < resourceCount[i]) {
+                                    canFit = 0;
+                                    break;
+                                }
+                            }
+                            if (!canFit) break;
+                        }
+                    }
+                    if (canFit) bookingsToFit++;
+                    else break;
+                }
+
+                // Allocate resources and update bookings
+                if (bookingsToFit > 0) {
+                    int resourcesAllocated = allocateResources(startMinutes, durationMinutes, bookings[rejectedBookings[processed]].essentials);
+                    if (resourcesAllocated) {
+                        for (int r = 0; r < bookingsToFit; r++) {
+                            Booking *b = &bookings[rejectedBookings[processed + r]];
+                            b->accepted = 1;
+                            sprintf(b->time, "%02d:%02d", startMinutes / 60, startMinutes % 60);
+                            snprintf(b->reasonForRejection, sizeof(b->reasonForRejection), "Rescheduled to optimized slot");
+                        }
+                        processed += bookingsToFit;
+                        memcpy(tempParking, parkingAvailability, sizeof(parkingAvailability));
+                        memcpy(tempResources, resourceAvailability, sizeof(resourceAvailability));
                     }
                 }
             }
 
-            // If not fitted into an existing slot, proceed with original rescheduling logic
-            if (!foundSlot) {
-                if (b->priority == PRIORITY_ESSENTIAL) {
-                    for (int startMinutes = 0; startMinutes <= 1440 - durationMinutes; startMinutes += 60) {
-                        memcpy(parkingAvailability, tempParking, sizeof(parkingAvailability));
-                        memcpy(resourceAvailability, tempResources, sizeof(resourceAvailability));
-
-                        for (int j = 0; j < totalBookings; j++) {
-                            if (bookings[j].accepted && j != i) {
-                                int start = timeToMinutes(bookings[j].time);
-                                int dur = durationToMinutes(bookings[j].duration);
-                                allocateResources(start, dur, bookings[j].essentials);
-                            }
-                        }
-
-                        int resourcesAvailable = allocateResources(startMinutes, durationMinutes, b->essentials);
-                        if (resourcesAvailable) {
-                            b->accepted = 1;
-                            sprintf(b->time, "%02d:%02d", startMinutes / 60, startMinutes % 60);
-                            snprintf(b->reasonForRejection, sizeof(b->reasonForRejection), "Fitted into resource-available slot");
-                            foundSlot = 1;
-                            memcpy(tempParking, parkingAvailability, sizeof(parkingAvailability));
-                            memcpy(tempResources, resourceAvailability, sizeof(resourceAvailability));
-                            break;
-                        }
-                    }
-                } else {
-                    for (int startMinutes = 0; startMinutes <= 1440 - durationMinutes; startMinutes += 60) {
-                        memcpy(parkingAvailability, tempParking, sizeof(parkingAvailability));
-                        memcpy(resourceAvailability, tempResources, sizeof(resourceAvailability));
-
-                        for (int j = 0; j < totalBookings; j++) {
-                            if (bookings[j].accepted && j != i) {
-                                int start = timeToMinutes(bookings[j].time);
-                                int dur = durationToMinutes(bookings[j].duration);
-                                allocateResources(start, dur, bookings[j].essentials);
-                                if (bookings[j].priority != PRIORITY_ESSENTIAL) {
-                                    int sSlot = start / 60;
-                                    int eSlot = (start + dur) / 60 + ((start + dur) % 60 > 0 ? 1 : 0);
-                                    for (int k = sSlot; k < eSlot; k++) {
-                                        parkingAvailability[k][bookings[j].parkingSlot] = 0;
-                                    }
-                                }
-                            }
-                        }
-
-                        int startSlot = startMinutes / 60;
-                        int endSlot = (startMinutes + durationMinutes) / 60 + ((startMinutes + durationMinutes) % 60 > 0 ? 1 : 0);
-                        int parkingSlot = -1;
-
-                        for (int j = 0; j < PARKING_SLOTS; j++) {
-                            int parkingAvailable = 1;
-                            for (int k = startSlot; k < endSlot; k++) {
-                                if (parkingAvailability[k][j] == 0) {
-                                    parkingAvailable = 0;
-                                    break;
-                                }
-                            }
-                            if (parkingAvailable) {
-                                parkingSlot = j;
-                                break;
-                            }
-                        }
-
-                        int resourcesAvailable = allocateResources(startMinutes, durationMinutes, b->essentials);
-                        if (parkingSlot != -1 && resourcesAvailable) {
-                            for (int k = startSlot; k
-
- < endSlot; k++) {
-                                parkingAvailability[k][parkingSlot] = 0;
-                            }
-                            b->parkingSlot = parkingSlot;
-                            b->accepted = 1;
-                            sprintf(b->time, "%02d:%02d", startMinutes / 60, startMinutes % 60);
-                            snprintf(b->reasonForRejection, sizeof(b->reasonForRejection), "Rescheduled to new slot");
-                            foundSlot = 1;
-                            memcpy(tempParking, parkingAvailability, sizeof(parkingAvailability));
-                            memcpy(tempResources, resourceAvailability, sizeof(resourceAvailability));
-                            break;
-                        }
-                    }
-                }
-
-                if (!foundSlot) {
-                    b->accepted = 0;
-                    snprintf(b->reasonForRejection, sizeof(b->reasonForRejection), "No suitable slot found with available resources");
-                    suggestAlternativeSlots(b->duration, b->memberName, b->date, b->time);
-                }
+            // If any bookings remain unprocessed, mark them as rejected
+            for (int r = processed; r < rejectedCount; r++) {
+                Booking *b = &bookings[rejectedBookings[r]];
+                b->accepted = 0;
+                snprintf(b->reasonForRejection, sizeof(b->reasonForRejection), "No suitable slot found with available resources");
+                suggestAlternativeSlots(b->duration, b->memberName, b->date, b->time);
             }
         }
     }
