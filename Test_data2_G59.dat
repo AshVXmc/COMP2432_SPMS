@@ -1,0 +1,4 @@
+addParking -member_A 2025-05-16 10:00 3.0 battery
+addParking -member_B 2025-05-16 10:00 3.0 cable
+addReservation -member_C 2025-05-16 10:00 3.0 battery
+bookEssentials -member_D 2025-05-16 10:00 3.0 cable

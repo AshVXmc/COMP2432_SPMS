@@ -1,0 +1,8 @@
+addEvent -member_A 2025-05-12 00:00 23.9 battery
+addEvent -member_A 2025-05-12 00:00 24.0 battery
+addEvent -member_A 2025-05-12 00:00 24.1 battery
+addEvent -member_B 2025-05-12 23:00 0.9 battery
+addEvent -member_B 2025-05-12 23:00 1.0 battery
+addEvent -member_B 2025-05-12 23:00 1.1 battery
+addEvent -member_B 2025-05-12 23:00 2.0 battery
+addEvent -member_B 2025-05-12 10:00 40.0 battery

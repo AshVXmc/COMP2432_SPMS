@@ -1,0 +1,4 @@
+addEvent -member_C 2025-05-12 00:00 3.0 battery
+addEvent -member_A 2025-05-12 00:00 3.0 battery
+addEvent -member_B 2025-05-12 00:00 3.0 cable
+addEvent -member_D 2025-05-12 00:00 4.0 battery

@@ -1,0 +1,2 @@
+addParking -member_A 2025-05-16 10:00 3.0 battery
+addReservation -member_B 2025-05-16 08:00 3.0 battery
