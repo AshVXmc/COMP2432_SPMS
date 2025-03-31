@@ -22,7 +22,6 @@ typedef struct {
     int parkingSlot;        
     int accepted;           // 1 = accepted, 0 = rejected
     char reasonForRejection[256]; // why the booking is rejected (if applicable)
-    char alternativeSlots[1024]; // alternative time slots (if applicable)
 } Booking;
 
 typedef struct {
@@ -605,7 +604,6 @@ void addBooking(char *memberName, char *date, char *time, float duration, char e
         b->priority = priority;
         b->parkingSlot = -1;
         b->accepted = 0;
-        b->alternativeSlots[0] = '\0';
         
         int i;
         for (i = 0; i < MAX_RESOURCES; i++) {
@@ -721,10 +719,7 @@ void processBookings_FCFS() {
             } else {
                 b->accepted = 0;
                 snprintf(b->reasonForRejection, sizeof(b->reasonForRejection), "One or more essentials unavailable.");
-                char *suggestions = suggestAlternativeSlots(b->duration, b->memberName, b->date, b->time);
-                strncpy(b->alternativeSlots, suggestions, sizeof(b->alternativeSlots) - 1);
-                b->alternativeSlots[sizeof(b->alternativeSlots) - 1] = '\0'; // 確保字串終止
-                free(suggestions);
+                suggestAlternativeSlots(b->duration, b->memberName, b->date, b->time);
             }
         } else {
             if (slotFound != -1 && resourcesAllocated) {
@@ -734,6 +729,7 @@ void processBookings_FCFS() {
                 b->parkingSlot = slotFound;
                 b->accepted = 1;
             } else if (slotFound == -1) {
+                // Try to displace lower-priority bookings
                 for (int j = 0; j < totalBookings; j++) {
                     Booking *other = &bookings[j];
                     if (other != b && other->accepted && other->priority > b->priority &&
@@ -766,19 +762,13 @@ void processBookings_FCFS() {
                     b->accepted = 0;
                     snprintf(b->reasonForRejection, sizeof(b->reasonForRejection),
                              resourcesAllocated ? "No available parking slots." : "One or more essentials unavailable.");
-                    char *suggestions = suggestAlternativeSlots(b->duration, b->memberName, b->date, b->time);
-                    strncpy(b->alternativeSlots, suggestions, sizeof(b->alternativeSlots) - 1);
-                    b->alternativeSlots[sizeof(b->alternativeSlots) - 1] = '\0';
-                    free(suggestions);
+                    suggestAlternativeSlots(b->duration, b->memberName, b->date, b->time);
                 }
             } else {
                 releaseResources(startMinutes, durationMinutes, b->essentials);
                 b->accepted = 0;
                 snprintf(b->reasonForRejection, sizeof(b->reasonForRejection), "One or more essentials unavailable.");
-                char *suggestions = suggestAlternativeSlots(b->duration, b->memberName, b->date, b->time);
-                strncpy(b->alternativeSlots, suggestions, sizeof(b->alternativeSlots) - 1);
-                b->alternativeSlots[sizeof(b->alternativeSlots) - 1] = '\0';
-                free(suggestions);
+                suggestAlternativeSlots(b->duration, b->memberName, b->date, b->time);
             }
         }
     }
@@ -818,10 +808,7 @@ void processBookings_Priority() {
             } else {
                 b->accepted = 0;
                 snprintf(b->reasonForRejection, sizeof(b->reasonForRejection), "One or more essentials unavailable.");
-                char *suggestions = suggestAlternativeSlots(b->duration, b->memberName, b->date, b->time);
-                strncpy(b->alternativeSlots, suggestions, sizeof(b->alternativeSlots) - 1);
-                b->alternativeSlots[sizeof(b->alternativeSlots) - 1] = '\0'; // 確保字串終止
-                free(suggestions); // 釋放動態分配的記憶體
+                suggestAlternativeSlots(b->duration, b->memberName, b->date, b->time);
             }
         } else {
             if (slotFound != -1 && resourcesAllocated) {
@@ -847,10 +834,6 @@ void processBookings_Priority() {
                             other->accepted = 0;
                             snprintf(other->reasonForRejection, sizeof(other->reasonForRejection),
                                      "Displaced by higher priority booking.");
-                            char *otherSuggestions = suggestAlternativeSlots(other->duration, other->memberName, other->date, other->time);
-                            strncpy(other->alternativeSlots, otherSuggestions, sizeof(other->alternativeSlots) - 1);
-                            other->alternativeSlots[sizeof(other->alternativeSlots) - 1] = '\0';
-                            free(otherSuggestions);
                             slotFound = other->parkingSlot;
                             break;
                         }
@@ -867,34 +850,31 @@ void processBookings_Priority() {
                     b->accepted = 0;
                     snprintf(b->reasonForRejection, sizeof(b->reasonForRejection),
                              resourcesAllocated ? "No available parking slots." : "One or more essentials unavailable.");
-                    char *suggestions = suggestAlternativeSlots(b->duration, b->memberName, b->date, b->time);
-                    strncpy(b->alternativeSlots, suggestions, sizeof(b->alternativeSlots) - 1);
-                    b->alternativeSlots[sizeof(b->alternativeSlots) - 1] = '\0';
-                    free(suggestions);
+                    suggestAlternativeSlots(b->duration, b->memberName, b->date, b->time);
                 }
             } else {
                 releaseResources(startMinutes, durationMinutes, b->essentials);
                 b->accepted = 0;
                 snprintf(b->reasonForRejection, sizeof(b->reasonForRejection), "One or more essentials unavailable.");
-                char *suggestions = suggestAlternativeSlots(b->duration, b->memberName, b->date, b->time);
-                strncpy(b->alternativeSlots, suggestions, sizeof(b->alternativeSlots) - 1);
-                b->alternativeSlots[sizeof(b->alternativeSlots) - 1] = '\0';
-                free(suggestions);
+                suggestAlternativeSlots(b->duration, b->memberName, b->date, b->time);
             }
         }
     }
 }
 
 void processBookings_Optimized() {
+    // Step 1: Run FCFS to get initial allocation
     processBookings_FCFS();
 
+    // Save initial state
     int tempParking[TIME_SLOTS][PARKING_SLOTS];
     int tempResources[TIME_SLOTS][MAX_RESOURCES];
     memcpy(tempParking, parkingAvailability, sizeof(parkingAvailability));
     memcpy(tempResources, resourceAvailability, sizeof(resourceAvailability));
 
+    // Step 2: Process rejected bookings with optimization
     for (int m = 0; m < 5; m++) {
-        char *member = members[m];
+        const char *member = members[m];
         int rejectedBookings[MAX_BOOKINGS];
         int rejectedCount = 0;
 
@@ -959,6 +939,13 @@ void processBookings_Optimized() {
                 if (bookingsToFit > 0) {
                     int resourcesAllocated = allocateResources(startMinutes, durationMinutes, bookings[rejectedBookings[processed]].essentials);
                     if (resourcesAllocated) {
+                        // 記錄成功的時段
+                        OptimizedSlot *slot = &optimizedSlots[optimizedSlotCount++];
+                        strcpy(slot->date, bookings[rejectedBookings[processed]].date);
+                        slot->startMinutes = startMinutes;
+                        slot->durationMinutes = durationMinutes;
+                        memcpy(slot->resourceCount, resourceAvailability[startMinutes / 60], sizeof(resourceCount));
+
                         for (int r = 0; r < bookingsToFit; r++) {
                             Booking *b = &bookings[rejectedBookings[processed + r]];
                             b->accepted = 1;
@@ -976,10 +963,7 @@ void processBookings_Optimized() {
                 Booking *b = &bookings[rejectedBookings[r]];
                 b->accepted = 0;
                 snprintf(b->reasonForRejection, sizeof(b->reasonForRejection), "No suitable slot found with available resources");
-                char *suggestions = suggestAlternativeSlots(b->duration, b->memberName, b->date, b->time);
-                strncpy(b->alternativeSlots, suggestions, sizeof(b->alternativeSlots) - 1);
-                b->alternativeSlots[sizeof(b->alternativeSlots) - 1] = '\0';
-                free(suggestions);
+                suggestAlternativeSlots(b->duration, b->memberName, b->date, b->time);
             }
         }
     }
@@ -1098,6 +1082,8 @@ const char* getBookingType(int priority) {
 void printBookings(const char *algorithm) {
     printf("\n*** Booking Schedule (%s) ***\n", algorithm);
 
+    char members[5][20] = {"member_A", "member_B", "member_C", "member_D", "member_E"};
+
     printf("\n*** ACCEPTED Bookings ***\n");
     for (int m = 0; m < 5; m++) {
         char *member = members[m];
@@ -1157,9 +1143,6 @@ void printBookings(const char *algorithm) {
                     else strcpy(essentials, "-");
                     printf("%-12s %-6s %-6s %-12s %-20s %-30s\n", b->date, b->time, endTime,
                            getBookingType(b->priority), essentials, b->reasonForRejection);
-                    if (strlen(b->alternativeSlots) > 0) {
-                        printf("%s", b->alternativeSlots); // print alternative slots
-                    }
                     free(endTime);
                 }
             }
@@ -1323,44 +1306,71 @@ int contains(char essentials[MAX_RESOURCES][20], const char *item) {
     return -1;
 }
 
-char* suggestAlternativeSlots(float durationHours, char *memberName, char *date, char *time) {
+void suggestAlternativeSlots(float durationHours, char *memberName, char *date, char *time) {
     int durationMinutes = durationToMinutes(durationHours);
-    char *suggestions = (char *)malloc(1024 * sizeof(char)); // memory allocation for suggestions
-    suggestions[0] = '\0'; // initialize to empty string
-    int hasSuggestions = 0;
+    int originalStart = timeToMinutes(time);
+    int suggestions = 0;
 
-    sprintf(suggestions, "Suggested alternative booking slots for %s on %s at %s:\n", memberName, date, time);
+    printf("Suggested alternative booking slots for %s on %s at %s:\n", memberName, date, time);
 
-    for (int newStartMinutes = 0; newStartMinutes <= 1440 - durationMinutes; newStartMinutes += 60) {
-        int startSlot = newStartMinutes / 60;
-        int endSlot = (newStartMinutes + durationMinutes) / 60 + ((newStartMinutes + durationMinutes) % 60 > 0 ? 1 : 0);
-        int available = 1;
-        for (int j = 0; j < PARKING_SLOTS; j++) {
-            int slotAvailable = 1;
-            for (int k = startSlot; k < endSlot; k++) {
-                if (parkingAvailability[k][j] == 0) {
-                    slotAvailable = 0;
+    // first suggest optimized successive slots
+    for (int i = 0; i < optimizedSlotCount && suggestions < 3; i++) {
+        OptimizedSlot *slot = &optimizedSlots[i];
+        if (strcmp(slot->date, date) == 0 && slot->durationMinutes >= durationMinutes) {
+            int startSlot = slot->startMinutes / 60;
+            int endSlot = (slot->startMinutes + durationMinutes) / 60 + ((slot->startMinutes + durationMinutes) % 60 > 0 ? 1 : 0);
+            int batteryIdx = getResourceIndex("battery");
+            if (slot->resourceCount[batteryIdx] >= 1) { 
+                printf(" -> Time slot: %02d:%02d (Optimized)\n", slot->startMinutes / 60, slot->startMinutes % 60);
+                suggestions++;
+            }
+        }
+    }
+
+    // if suggestions < 3, suggest alternative time slots
+    if (suggestions < 3) {
+        for (int newStartMinutes = 0; newStartMinutes <= 1440 - durationMinutes && suggestions < 3; newStartMinutes += 60) {
+            int startSlot = newStartMinutes / 60;
+            int endSlot = (newStartMinutes + durationMinutes) / 60 + ((newStartMinutes + durationMinutes) % 60 > 0 ? 1 : 0);
+            int availableParking = 0;
+            for (int j = 0; j < PARKING_SLOTS; j++) {
+                int slotAvailable = 1;
+                for (int k = startSlot; k < endSlot; k++) {
+                    if (parkingAvailability[k][j] == 0) {
+                        slotAvailable = 0;
+                        break;
+                    }
+                }
+                if (slotAvailable) {
+                    availableParking = 1;
                     break;
                 }
             }
-            if (slotAvailable) {
-                available = 1;
-                break;
-            } else {
-                available = 0;
+            int batteryIdx = getResourceIndex("battery");
+            int resourcesAvailable = 1;
+            for (int slot = startSlot; slot < endSlot; slot++) {
+                if (resourceAvailability[slot][batteryIdx] < 1) {
+                    resourcesAvailable = 0;
+                    break;
+                }
+            }
+            if (availableParking && resourcesAvailable) {
+                int alreadySuggested = 0;
+                for (int j = 0; j < optimizedSlotCount; j++) {
+                    if (optimizedSlots[j].startMinutes == newStartMinutes && strcmp(optimizedSlots[j].date, date) == 0) {
+                        alreadySuggested = 1;
+                        break;
+                    }
+                }
+                if (!alreadySuggested) {
+                    printf(" -> Time slot: %02d:%02d\n", newStartMinutes / 60, newStartMinutes % 60);
+                    suggestions++;
+                }
             }
         }
-        if (available) {
-            char slot[32];
-            sprintf(slot, " -> Time slot: %02d:00\n", newStartMinutes / 60);
-            strcat(suggestions, slot);
-            hasSuggestions = 1;
-        }
     }
 
-    if (!hasSuggestions) {
-        strcat(suggestions, " -> No suitable slots available.\n");
+    if (suggestions == 0) {
+        printf(" -> No suitable slots available.\n");
     }
-
-    return suggestions; // return the suggestions string
 }
