@@ -1,0 +1,27 @@
+*** Booking Schedule (OPTIMIZED) ***
+
+*** ACCEPTED Bookings ***
+member_A has the following bookings:
+Date         Start  End    Type         Device
+===============================================================
+2025-05-16   00:00  23:00  Essentials   battery
+
+member_B has the following bookings:
+Date         Start  End    Type         Device
+===============================================================
+2025-05-16   00:00  23:00  Essentials   battery
+
+member_C has the following bookings:
+Date         Start  End    Type         Device
+===============================================================
+2025-05-16   00:00  23:00  Essentials   battery
+
+member_D has the following bookings:
+Date         Start  End    Type         Device
+===============================================================
+2025-05-16   23:00  23:54  Essentials   battery
+
+- End -
+
+*** Parking Booking - REJECTED / OPTIMIZED ***
+- End -

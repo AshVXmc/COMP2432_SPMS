@@ -1,0 +1,27 @@
+*** Booking Schedule (FCFS) ***
+
+*** ACCEPTED Bookings ***
+member_A has the following bookings:
+Date         Start  End    Type         Device
+===============================================================
+2025-05-16   10:00  13:00  Parking      battery
+
+member_B has the following bookings:
+Date         Start  End    Type         Device
+===============================================================
+2025-05-16   10:00  13:00  Parking      cable
+
+member_C has the following bookings:
+Date         Start  End    Type         Device
+===============================================================
+2025-05-16   10:00  13:00  Reservation  battery
+
+- End -
+
+*** Parking Booking - REJECTED / FCFS ***
+member_D (there are 1 bookings rejected):
+Date         Start  End    Type         Essentials           Reason
+================================================================================
+2025-05-16   10:00  13:00  Essentials   cable                One or more essentials unavailable.
+
+- End -

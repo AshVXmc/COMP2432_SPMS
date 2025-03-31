@@ -1,0 +1,27 @@
+*** Booking Schedule (PRIORITY) ***
+
+*** ACCEPTED Bookings ***
+member_A has the following bookings:
+Date         Start  End    Type         Device
+===============================================================
+2025-05-12   00:00  03:00  Event        battery
+
+member_B has the following bookings:
+Date         Start  End    Type         Device
+===============================================================
+2025-05-12   00:00  03:00  Event        cable
+
+member_C has the following bookings:
+Date         Start  End    Type         Device
+===============================================================
+2025-05-12   00:00  03:00  Event        battery
+
+- End -
+
+*** Parking Booking - REJECTED / PRIORITY ***
+member_D (there are 1 bookings rejected):
+Date         Start  End    Type         Essentials           Reason
+================================================================================
+2025-05-12   00:00  04:00  Event        battery              One or more essentials unavailable.
+
+- End -
