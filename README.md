@@ -1,5 +1,5 @@
 # Smart Parking Management System (COMP 2432)
-A Smart Parking Management System for PolyU using OS-Level process coordination. Built with C and the GCC compiler.
+A Smart Parking Management System for PolyU using OS-Level process coordination. Built with C and the GCC compiler. Use in Apollo2.
 
 ## Group 59 members:
 - Tsang, Man Ho
