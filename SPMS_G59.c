@@ -106,10 +106,6 @@ int isValidTime(char *time, float duration) {
     if (hour < 0 || hour > 23 || minute < 0 || minute > 59) {
         return 0;
     }
-    int totalMinutes = hour * 60 + minute;
-    if (totalMinutes + (duration * 60) >= 1440) {
-        return 0;
-    }
     return 1;
 }
 
